@@ -338,6 +338,7 @@ export default function PulpitApp() {
 
     try {
       const payload = {
+        speaker_user_id: 2,
         event_name: bookingForm.churchName,
         church_name: bookingForm.churchName,
         location: `${bookingForm.eventCity}, ${bookingForm.eventState}`,
