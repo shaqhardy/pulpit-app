@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft, ChevronRight, Menu, Edit, Save, Upload, Send, Plane, Car, Coffee, Bed, Trash2 } from 'lucide-react';
+import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft, ChevronRight, Menu, Edit, Save, Upload, Send, Plane, Car, Coffee, Bed, Trash2, Mic, Music, AlertCircle } from 'lucide-react';
 
 // TWO different API bases in Xano
 const AUTH_API = 'https://x8ki-letl-twmt.n7.xano.io/api:fwui2Env';
@@ -190,6 +190,8 @@ export default function PulpitApp() {
   const [selectedRequestForItinerary, setSelectedRequestForItinerary] = useState(null);
   const [itineraryItems, setItineraryItems] = useState([]);
   const [newItineraryItem, setNewItineraryItem] = useState({ item_type: '', title: '', details: '', location: '', date_time: '' });
+  const [editingItineraryItem, setEditingItineraryItem] = useState(null);
+  const [editItineraryForm, setEditItineraryForm] = useState({ item_type: '', title: '', details: '', location: '', date_time: '' });
   
   // Form data
   const [loginEmail, setLoginEmail] = useState('');
@@ -341,7 +343,7 @@ export default function PulpitApp() {
   };
 
   // Document functions
-  const handleDocumentUpload = async (requestId, docType, file) => {
+  const handleDocumentUpload = async (requestId, docType, file, isUniversal = false) => {
     setUploadingDoc(true);
     try {
       // For now, we'll store document metadata - actual file upload would need cloud storage
@@ -350,10 +352,11 @@ export default function PulpitApp() {
         body: JSON.stringify({
           name: file.name || docType,
           document_type: docType,
-          booking_request_id: requestId,
+          booking_request_id: isUniversal ? null : requestId,
           uploaded_by_user_id: currentUser.id,
           status: 'uploaded',
           file: file.name,
+          is_universal: isUniversal,
         }),
       });
       // Reload documents
@@ -398,6 +401,36 @@ export default function PulpitApp() {
     } catch (error) {
       console.error('Failed to add itinerary item:', error);
     }
+  };
+
+  const handleEditItineraryItem = (item) => {
+    setEditingItineraryItem(item.id);
+    setEditItineraryForm({
+      item_type: item.item_type || '',
+      title: item.title || '',
+      details: item.details || '',
+      location: item.location || '',
+      date_time: item.date_time || '',
+    });
+  };
+
+  const handleSaveItineraryItem = async (itemId, requestId) => {
+    try {
+      await apiCall(DATA_API, `/itinerary_item/${itemId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(editItineraryForm),
+      });
+      setEditingItineraryItem(null);
+      setEditItineraryForm({ item_type: '', title: '', details: '', location: '', date_time: '' });
+      loadItineraryForRequest(requestId);
+    } catch (error) {
+      console.error('Failed to update itinerary item:', error);
+    }
+  };
+
+  const handleCancelEditItinerary = () => {
+    setEditingItineraryItem(null);
+    setEditItineraryForm({ item_type: '', title: '', details: '', location: '', date_time: '' });
   };
 
   const handleDeleteItineraryItem = async (itemId, requestId) => {
@@ -609,6 +642,24 @@ export default function PulpitApp() {
 
   const attireOptions = ['Casual', 'Business Casual', 'Formal', 'Other'];
 
+  // Itinerary item type options with icons
+  const itineraryTypeOptions = [
+    { value: 'flight', label: 'Flight', icon: Plane },
+    { value: 'hotel', label: 'Hotel', icon: Bed },
+    { value: 'transport', label: 'Ground Transport', icon: Car },
+    { value: 'meal', label: 'Meal', icon: Coffee },
+    { value: 'session', label: 'Session', icon: Calendar },
+    { value: 'rehearsal', label: 'Rehearsal', icon: Music },
+    { value: 'mic_check', label: 'Mic Check', icon: Mic },
+    { value: 'call_time', label: 'Call Time', icon: AlertCircle },
+    { value: 'other', label: 'Other', icon: Clock },
+  ];
+
+  const getItineraryIcon = (itemType) => {
+    const found = itineraryTypeOptions.find(t => t.value === itemType);
+    return found ? found.icon : Clock;
+  };
+
   const getStatusBadge = (status) => {
     const statusStyles = {
       pending: { background: 'rgba(255,180,0,0.15)', color: '#FFB400' },
@@ -617,6 +668,24 @@ export default function PulpitApp() {
       completed: { background: 'rgba(107,138,229,0.15)', color: '#6B8AE5' },
     };
     return statusStyles[status] || { background: 'rgba(247,243,233,0.1)', color: 'rgba(247,243,233,0.5)' };
+  };
+
+  // Get universal documents (no booking_request_id or is_universal = true)
+  const universalDocs = documents.filter(d => !d.booking_request_id || d.is_universal);
+  
+  // Get event-specific documents grouped by request
+  const getEventDocs = () => {
+    const eventDocs = documents.filter(d => d.booking_request_id && !d.is_universal);
+    const grouped = {};
+    eventDocs.forEach(doc => {
+      const request = bookingRequests.find(r => r.id === doc.booking_request_id);
+      const eventName = request?.event_name || request?.church_name || `Event #${doc.booking_request_id}`;
+      if (!grouped[doc.booking_request_id]) {
+        grouped[doc.booking_request_id] = { eventName, docs: [] };
+      }
+      grouped[doc.booking_request_id].docs.push(doc);
+    });
+    return grouped;
   };
 
   // REQUEST DETAIL VIEW
@@ -750,25 +819,25 @@ export default function PulpitApp() {
                 {/* Event Details */}
                 <div style={{ marginBottom: '32px' }}>
                   <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>EVENT DETAILS</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
                       <Calendar size={18} color="rgba(247,243,233,0.5)" />
                       <div>
-                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Event Date</p>
-                        <p style={{ color: '#F7F3E9' }}>{selectedRequest.event_date}{notes.eventEndDate ? ` - ${notes.eventEndDate}` : ''}</p>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Date</p>
+                        <p style={{ color: '#F7F3E9' }}>{selectedRequest.event_date ? new Date(selectedRequest.event_date).toLocaleDateString() : 'TBD'}</p>
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
                       <MapPin size={18} color="rgba(247,243,233,0.5)" />
                       <div>
                         <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Location</p>
-                        <p style={{ color: '#F7F3E9' }}>{eventAddress.address ? `${eventAddress.address}, ` : ''}{selectedRequest.location}</p>
+                        <p style={{ color: '#F7F3E9' }}>{selectedRequest.location || 'Not specified'}</p>
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
                       <UsersIcon size={18} color="rgba(247,243,233,0.5)" />
                       <div>
-                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Expected Attendance</p>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Attendance</p>
                         <p style={{ color: '#F7F3E9' }}>{selectedRequest.attendance || 'Not specified'}</p>
                       </div>
                     </div>
@@ -937,12 +1006,9 @@ export default function PulpitApp() {
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <select value={newItineraryItem.item_type} onChange={(e) => setNewItineraryItem(prev => ({ ...prev, item_type: e.target.value }))} style={styles.input}>
                       <option value="">Type</option>
-                      <option value="flight">Flight</option>
-                      <option value="hotel">Hotel</option>
-                      <option value="transport">Ground Transport</option>
-                      <option value="meal">Meal</option>
-                      <option value="session">Session</option>
-                      <option value="other">Other</option>
+                      {itineraryTypeOptions.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
                     </select>
                     <input type="text" placeholder="Title" value={newItineraryItem.title} onChange={(e) => setNewItineraryItem(prev => ({ ...prev, title: e.target.value }))} style={styles.input} />
                     <input type="datetime-local" value={newItineraryItem.date_time} onChange={(e) => setNewItineraryItem(prev => ({ ...prev, date_time: e.target.value }))} style={styles.input} />
@@ -964,8 +1030,36 @@ export default function PulpitApp() {
                 ) : (
                   <div>
                     {itineraryItems.sort((a, b) => new Date(a.date_time) - new Date(b.date_time)).map((item, i) => {
-                      const itemIcons = { flight: Plane, hotel: Bed, transport: Car, meal: Coffee, session: Calendar, other: Clock };
-                      const ItemIcon = itemIcons[item.item_type] || Clock;
+                      const ItemIcon = getItineraryIcon(item.item_type);
+                      const isEditing = editingItineraryItem === item.id;
+                      
+                      if (isEditing) {
+                        return (
+                          <div key={item.id || i} style={{ padding: '16px', background: 'rgba(83,94,74,0.1)', borderRadius: '10px', marginBottom: '8px', border: '1px solid rgba(83,94,74,0.3)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                              <select value={editItineraryForm.item_type} onChange={(e) => setEditItineraryForm(prev => ({ ...prev, item_type: e.target.value }))} style={styles.input}>
+                                <option value="">Type</option>
+                                {itineraryTypeOptions.map(opt => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
+                              <input type="text" placeholder="Title" value={editItineraryForm.title} onChange={(e) => setEditItineraryForm(prev => ({ ...prev, title: e.target.value }))} style={styles.input} />
+                              <input type="datetime-local" value={editItineraryForm.date_time} onChange={(e) => setEditItineraryForm(prev => ({ ...prev, date_time: e.target.value }))} style={styles.input} />
+                              <input type="text" placeholder="Location" value={editItineraryForm.location} onChange={(e) => setEditItineraryForm(prev => ({ ...prev, location: e.target.value }))} style={styles.input} />
+                            </div>
+                            <input type="text" placeholder="Details (optional)" value={editItineraryForm.details} onChange={(e) => setEditItineraryForm(prev => ({ ...prev, details: e.target.value }))} style={{ ...styles.input, marginBottom: '12px' }} />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button onClick={() => handleSaveItineraryItem(item.id, selectedRequest.id)} style={{ ...styles.button, padding: '10px 16px' }}>
+                                <Save size={14} style={{ marginRight: '6px' }} /> Save
+                              </button>
+                              <button onClick={handleCancelEditItinerary} style={{ ...styles.buttonSecondary, padding: '10px 16px' }}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
                       return (
                         <div key={item.id || i} style={{ display: 'flex', gap: '16px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', alignItems: 'flex-start' }}>
                           <div style={{ width: '40px', height: '40px', background: 'rgba(83,94,74,0.2)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -977,9 +1071,14 @@ export default function PulpitApp() {
                             {item.location && <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {item.location}</p>}
                             {item.details && <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '13px', marginTop: '8px' }}>{item.details}</p>}
                           </div>
-                          <button onClick={() => handleDeleteItineraryItem(item.id, selectedRequest.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(247,243,233,0.3)', padding: '4px' }}>
-                            <Trash2 size={16} />
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={() => handleEditItineraryItem(item)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(247,243,233,0.4)', padding: '4px' }}>
+                              <Edit size={16} />
+                            </button>
+                            <button onClick={() => handleDeleteItineraryItem(item.id, selectedRequest.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(247,243,233,0.3)', padding: '4px' }}>
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -1029,42 +1128,41 @@ export default function PulpitApp() {
             fontSize: isMobile ? '48px' : '64px',
             fontWeight: '600',
             color: '#F7F3E9',
-            border: '4px solid rgba(247,243,233,0.1)'
           }}>
             {currentUser?.name?.charAt(0) || 'S'}
           </div>
-          
-          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '36px' : '56px', letterSpacing: isMobile ? '2px' : '3px', marginBottom: '16px', color: '#F7F3E9' }}>
-            {currentUser?.name?.toUpperCase() || 'SPEAKER NAME'}
+
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', letterSpacing: '3px', marginBottom: '16px', color: '#F7F3E9' }}>
+            {currentUser?.name || 'Speaker Name'}
           </h1>
           
-          <p style={{ fontSize: isMobile ? '14px' : '18px', color: '#535E4A', marginBottom: '24px', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
-            {currentUser?.tagline?.toUpperCase() || 'SPEAKER • BIBLE TEACHER'}
-          </p>
+          {currentUser?.tagline && (
+            <p style={{ fontSize: isMobile ? '16px' : '20px', color: 'rgba(247,243,233,0.7)', marginBottom: '24px', fontStyle: 'italic' }}>
+              {currentUser.tagline}
+            </p>
+          )}
           
-          <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'rgba(247,243,233,0.7)', marginBottom: '48px', lineHeight: '1.8', maxWidth: '700px', margin: '0 auto 48px' }}>
-            {currentUser?.bio || 'Preaching the Word. Teaching the truth. Cultivating faithfulness.'}
-          </p>
+          {currentUser?.bio && (
+            <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'rgba(247,243,233,0.6)', maxWidth: '700px', margin: '0 auto 48px', lineHeight: '1.8' }}>
+              {currentUser.bio}
+            </p>
+          )}
 
-          <button onClick={() => setCurrentView('booking')} style={{ ...styles.button, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '13px' : '15px' }}>
-            SUBMIT A SPEAKING REQUEST
-          </button>
-        </section>
-
-        {/* Stats Section */}
-        <section style={{ padding: isMobile ? '40px 20px' : '60px 48px', background: 'rgba(247,243,233,0.02)' }}>
-          <div style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: isMobile ? '16px' : '32px', textAlign: 'center' }}>
+          {/* Stats */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: isMobile ? '32px' : '64px', flexWrap: 'wrap' }}>
+            {yearsPreaching && (
+              <div>
+                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', color: '#535E4A', marginBottom: '8px' }}>
+                  {yearsPreaching}+
+                </p>
+                <p style={{ fontSize: isMobile ? '11px' : '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Years Speaking</p>
+              </div>
+            )}
             <div>
               <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', color: '#535E4A', marginBottom: '8px' }}>
-                {confirmedEvents.length}+
+                {confirmedEvents.length}
               </p>
               <p style={{ fontSize: isMobile ? '11px' : '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Events</p>
-            </div>
-            <div>
-              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', color: '#535E4A', marginBottom: '8px' }}>
-                {yearsPreaching ? `${yearsPreaching}+` : '—'}
-              </p>
-              <p style={{ fontSize: isMobile ? '11px' : '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Years</p>
             </div>
             <div>
               <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', color: '#535E4A', marginBottom: '8px' }}>
@@ -1330,35 +1428,37 @@ export default function PulpitApp() {
               <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', marginBottom: '24px', color: '#F7F3E9' }}>LOGISTICS</h2>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={styles.label}>Is the sale of merch allowed during the event? *</label>
+                <label style={styles.label}>Will you allow merchandise (books, etc.) to be sold? *</label>
                 <select value={bookingForm.merchAllowed} onChange={(e) => handleBookingChange('merchAllowed', e.target.value)} style={styles.input} required>
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
-                  <option value="maybe">Maybe - Let's discuss</option>
                 </select>
               </div>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={styles.label}>Event Attire *</label>
+                <label style={styles.label}>Attire *</label>
                 <select value={bookingForm.attire} onChange={(e) => handleBookingChange('attire', e.target.value)} style={styles.input} required>
-                  <option value="">Select an option</option>
+                  <option value="">Select attire</option>
                   {attireOptions.map((option) => (
                     <option key={option} value={option.toLowerCase()}>{option}</option>
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* Compensation */}
+            <div style={{ ...styles.card, marginBottom: '24px' }}>
+              <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', marginBottom: '24px', color: '#F7F3E9' }}>COMPENSATION</h2>
 
               <div style={{ marginBottom: '16px' }}>
                 <label style={styles.label}>Honorarium Amount *</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(247,243,233,0.5)' }}>$</span>
-                  <input type="number" value={bookingForm.honorarium} onChange={(e) => handleBookingChange('honorarium', e.target.value)} style={{ ...styles.input, paddingLeft: '32px' }} placeholder="0.00" required />
-                </div>
+                <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)', marginBottom: '8px' }}>What is the total honorarium you are offering?</p>
+                <input type="number" value={bookingForm.honorarium} onChange={(e) => handleBookingChange('honorarium', e.target.value)} style={styles.input} placeholder="$" required />
               </div>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={styles.label}>Expenses Covered *</label>
-                <div style={{ display: 'grid', gap: '8px', marginTop: '8px' }}>
+                <label style={styles.label}>Will you cover any of the following expenses?</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
                   {expenseOptions.map((option) => (
                     <label key={option} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '8px', background: bookingForm.expensesCovered.includes(option) ? 'rgba(83,94,74,0.2)' : 'transparent', borderRadius: '8px' }}>
                       <input type="checkbox" checked={bookingForm.expensesCovered.includes(option)} onChange={() => handleExpenseChange(option)} style={{ accentColor: '#535E4A' }} />
@@ -1368,18 +1468,21 @@ export default function PulpitApp() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={styles.label}>Send expenses to (email)</label>
-                <input type="email" value={bookingForm.expensesEmail} onChange={(e) => handleBookingChange('expensesEmail', e.target.value)} style={styles.input} />
-              </div>
-
-              <div>
-                <label style={styles.label}>Additional Comments</label>
-                <textarea value={bookingForm.additionalComments} onChange={(e) => handleBookingChange('additionalComments', e.target.value)} style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} placeholder="Anything else we should know?" />
-              </div>
+              {bookingForm.expensesCovered.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Email for expense receipts</label>
+                  <input type="email" value={bookingForm.expensesEmail} onChange={(e) => handleBookingChange('expensesEmail', e.target.value)} style={styles.input} placeholder="accounting@church.org" />
+                </div>
+              )}
             </div>
 
-            <button type="submit" disabled={bookingSubmitting} style={{ ...styles.button, width: '100%', padding: '18px', fontSize: '15px', opacity: bookingSubmitting ? 0.6 : 1 }}>
+            {/* Additional Comments */}
+            <div style={{ ...styles.card, marginBottom: '24px' }}>
+              <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', marginBottom: '24px', color: '#F7F3E9' }}>ADDITIONAL COMMENTS</h2>
+              <textarea value={bookingForm.additionalComments} onChange={(e) => handleBookingChange('additionalComments', e.target.value)} style={{ ...styles.input, minHeight: '120px', resize: 'vertical' }} placeholder="Anything else you'd like us to know..." />
+            </div>
+
+            <button type="submit" disabled={bookingSubmitting} style={{ ...styles.button, width: '100%', padding: '18px', opacity: bookingSubmitting ? 0.6 : 1 }}>
               {bookingSubmitting ? 'SUBMITTING...' : 'SUBMIT REQUEST'}
             </button>
           </form>
@@ -1398,53 +1501,67 @@ export default function PulpitApp() {
   if (currentView === 'landing') {
     return (
       <div style={{ minHeight: '100vh', background: '#0A0A0A' }}>
-        <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '16px 20px' : '24px 48px', borderBottom: '1px solid rgba(247,243,233,0.08)', flexWrap: 'wrap', gap: '12px' }}>
+        {/* Header */}
+        <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '16px 20px' : '24px 48px' }}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '24px' : '28px', letterSpacing: '2px', color: '#F7F3E9' }}>PULPIT</div>
-          <div style={{ display: 'flex', gap: isMobile ? '8px' : '16px', flexWrap: 'wrap' }}>
-            {!isMobile && <button onClick={() => setCurrentView('booking')} style={styles.buttonSecondary}>Book a Speaker</button>}
-            <button onClick={() => { setCurrentView('auth'); setAuthMode('login'); }} style={{ ...styles.buttonSecondary, padding: isMobile ? '10px 16px' : '12px 24px', fontSize: isMobile ? '12px' : '13px' }}>Log In</button>
-            <button onClick={() => { setCurrentView('auth'); setAuthMode('signup'); }} style={{ ...styles.button, padding: isMobile ? '10px 16px' : '14px 28px', fontSize: isMobile ? '12px' : '13px' }}>GET STARTED</button>
-          </div>
+          <button onClick={() => setCurrentView('auth')} style={styles.button}>
+            LOG IN
+          </button>
         </nav>
 
-        <section style={{ padding: isMobile ? '60px 20px' : '120px 48px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
-          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '36px' : '72px', letterSpacing: isMobile ? '1px' : '3px', lineHeight: '1.1', marginBottom: '24px', color: '#F7F3E9' }}>
-            THE BOOKING PLATFORM FOR SPEAKERS & WORSHIP LEADERS
+        {/* Hero */}
+        <section style={{ padding: isMobile ? '60px 20px' : '120px 48px', textAlign: 'center' }}>
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '36px' : '64px', letterSpacing: '3px', marginBottom: '24px', color: '#F7F3E9', lineHeight: '1.1' }}>
+            MANAGE YOUR<br />SPEAKING MINISTRY
           </h1>
-          <p style={{ fontSize: isMobile ? '15px' : '18px', color: 'rgba(247,243,233,0.7)', marginBottom: isMobile ? '32px' : '48px', lineHeight: '1.7' }}>
-            Manage requests, contracts, itineraries, and communication—all in one place. 100% free.
+          <p style={{ fontSize: isMobile ? '16px' : '20px', color: 'rgba(247,243,233,0.6)', maxWidth: '600px', margin: '0 auto 48px', lineHeight: '1.7' }}>
+            The all-in-one platform for speakers, preachers, and worship leaders to manage bookings, documents, and communications.
           </p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
-            <button onClick={() => { setCurrentView('auth'); setAuthMode('signup'); }} style={{ ...styles.button, padding: isMobile ? '16px 24px' : '18px 48px', fontSize: isMobile ? '14px' : '15px', width: isMobile ? '100%' : 'auto' }}>
-              CREATE YOUR FREE ACCOUNT
+          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button onClick={() => setCurrentView('auth')} style={{ ...styles.button, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '14px' : '15px' }}>
+              GET STARTED
             </button>
-            <button onClick={() => setCurrentView('booking')} style={{ ...styles.buttonSecondary, padding: isMobile ? '16px 24px' : '18px 48px', fontSize: isMobile ? '14px' : '15px', width: isMobile ? '100%' : 'auto' }}>
-              SUBMIT A REQUEST
+            <button onClick={() => setCurrentView('publicProfile')} style={{ ...styles.buttonSecondary, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '14px' : '15px' }}>
+              VIEW DEMO PROFILE
             </button>
           </div>
         </section>
 
+        {/* Features */}
         <section style={{ padding: isMobile ? '48px 20px' : '80px 48px', background: 'rgba(247,243,233,0.02)' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '24px' : '36px', textAlign: 'center', marginBottom: isMobile ? '32px' : '64px', letterSpacing: '2px', color: '#F7F3E9' }}>EVERYTHING YOU NEED</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))', gap: isMobile ? '16px' : '32px' }}>
+          <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '24px' : '36px', letterSpacing: '2px', textAlign: 'center', marginBottom: isMobile ? '40px' : '64px', color: '#F7F3E9' }}>
+              EVERYTHING YOU NEED
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? '24px' : '32px' }}>
               {[
-                { icon: Briefcase, title: 'Booking Requests', desc: 'Receive and manage speaking requests with all details in one place' },
-                { icon: FileText, title: 'Contracts & Documents', desc: 'Send contracts, collect signatures, store W9s and safety docs' },
-                { icon: Calendar, title: 'Itineraries', desc: 'Collaborate with hosts on travel details and event schedules' },
-                { icon: MessageSquare, title: 'Messaging', desc: 'Communicate directly with event hosts without email chains' },
-                { icon: Calendar, title: 'Calendar', desc: 'See all your events and manage availability in one view' },
-                { icon: Bell, title: 'Notifications', desc: 'Never miss a request or message with real-time alerts' },
+                { icon: Calendar, title: 'Booking Management', desc: 'Accept, decline, and track speaking requests with ease' },
+                { icon: FolderOpen, title: 'Document Hub', desc: 'Store contracts, W9s, riders, and more in one place' },
+                { icon: MessageSquare, title: 'Messaging', desc: 'Communicate directly with event hosts' },
+                { icon: Plane, title: 'Itinerary Builder', desc: 'Build and share detailed travel itineraries' },
+                { icon: Users, title: 'Team Management', desc: 'Collaborate with your team on bookings' },
+                { icon: User, title: 'Public Profile', desc: 'Showcase your ministry with a custom booking page' },
               ].map((feature, i) => (
-                <div key={i} style={{ ...styles.card, padding: isMobile ? '20px' : '24px' }}>
-                  <feature.icon size={isMobile ? 28 : 32} color="#535E4A" style={{ marginBottom: '12px' }} />
-                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '8px', letterSpacing: '1px', color: '#F7F3E9' }}>{feature.title}</h3>
-                  <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.6)', lineHeight: '1.6' }}>{feature.desc}</p>
+                <div key={i} style={{ ...styles.card, textAlign: 'center', padding: isMobile ? '24px' : '32px' }}>
+                  <feature.icon size={isMobile ? 32 : 40} color="#535E4A" style={{ marginBottom: '16px' }} />
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', marginBottom: '8px', color: '#F7F3E9' }}>
+                    {feature.title}
+                  </h3>
+                  <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.6)', lineHeight: '1.6' }}>
+                    {feature.desc}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
         </section>
+
+        {/* Footer */}
+        <footer style={{ padding: isMobile ? '24px 20px' : '32px 48px', borderTop: '1px solid rgba(247,243,233,0.08)', textAlign: 'center' }}>
+          <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.4)' }}>
+            © {new Date().getFullYear()} Pulpit • Built for speakers, by speakers
+          </p>
+        </footer>
       </div>
     );
   }
@@ -1452,17 +1569,17 @@ export default function PulpitApp() {
   // AUTH PAGE
   if (currentView === 'auth') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', background: '#0A0A0A' }}>
-        <div style={{ ...styles.card, width: '100%', maxWidth: '420px' }}>
+      <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '24px' : '48px' }}>
+        <div style={{ ...styles.card, width: '100%', maxWidth: '400px' }}>
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '32px', letterSpacing: '2px', marginBottom: '8px', color: '#F7F3E9' }}>PULPIT</div>
-            <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.6)' }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '28px', letterSpacing: '2px', marginBottom: '8px', color: '#F7F3E9' }}>PULPIT</div>
+            <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '14px' }}>
               {authMode === 'login' ? 'Welcome back' : 'Create your account'}
             </p>
           </div>
 
           {authError && (
-            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '12px', marginBottom: '20px', fontSize: '13px', color: '#EF4444' }}>
+            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '12px', marginBottom: '24px', fontSize: '13px', color: '#EF4444' }}>
               {authError}
             </div>
           )}
@@ -1598,19 +1715,19 @@ export default function PulpitApp() {
           )}
           <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '20px' : '32px', letterSpacing: '2px', color: '#F7F3E9', flex: 1 }}>
             {activeTab === 'dashboard' && `Welcome${isMobile ? '' : ', ' + (currentUser?.name || 'User')}`}
-            {activeTab === 'requests' && 'REQUESTS'}
-            {activeTab === 'calendar' && 'CALENDAR'}
-            {activeTab === 'messages' && 'MESSAGES'}
-            {activeTab === 'profile' && 'PROFILE'}
-            {activeTab === 'resources' && 'RESOURCES'}
-            {activeTab === 'documents' && 'DOCUMENTS'}
-            {activeTab === 'team' && 'TEAM'}
-            {activeTab === 'settings' && 'SETTINGS'}
+            {activeTab === 'requests' && 'Booking Requests'}
+            {activeTab === 'calendar' && 'Calendar'}
+            {activeTab === 'messages' && 'Messages'}
+            {activeTab === 'profile' && 'Profile'}
+            {activeTab === 'resources' && 'Resources'}
+            {activeTab === 'documents' && 'Documents'}
+            {activeTab === 'team' && 'Team'}
+            {activeTab === 'settings' && 'Settings'}
           </h1>
-          <button style={{ position: 'relative', background: 'transparent', border: 'none', cursor: 'pointer', padding: '8px' }}>
-            <Bell size={22} color="rgba(247,243,233,0.7)" />
+          <button style={{ position: 'relative', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+            <Bell size={20} color="rgba(247,243,233,0.6)" />
             {unreadNotifications > 0 && (
-              <span style={{ position: 'absolute', top: '4px', right: '4px', width: '8px', height: '8px', background: '#EF4444', borderRadius: '50%' }} />
+              <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', background: '#EF4444', borderRadius: '50%' }} />
             )}
           </button>
         </div>
@@ -1623,66 +1740,37 @@ export default function PulpitApp() {
           <>
             {activeTab === 'dashboard' && (
               <div>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: isMobile ? '12px' : '20px', marginBottom: '24px' }}>
+                {/* Stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: isMobile ? '12px' : '16px', marginBottom: '32px' }}>
                   {[
-                    { label: 'Pending Requests', value: pendingRequests, color: '#FFB400' },
-                    { label: 'Confirmed Events', value: bookingRequests.filter(r => r.status === 'confirmed').length, color: '#4CAF50' },
-                    { label: 'Unread Messages', value: unreadMessages, color: '#6B8AE5' },
-                    { label: 'Documents', value: documents.length, color: '#535E4A' },
+                    { label: 'Pending', value: pendingRequests, color: '#FFB400' },
+                    { label: 'Confirmed', value: bookingRequests.filter(r => r.status === 'confirmed').length, color: '#4CAF50' },
+                    { label: 'Completed', value: bookingRequests.filter(r => r.status === 'completed').length, color: '#6B8AE5' },
+                    { label: 'Messages', value: unreadMessages, color: '#535E4A' },
                   ].map((stat, i) => (
                     <div key={i} style={styles.card}>
-                      <p style={{ fontSize: '36px', fontWeight: '600', color: stat.color, marginBottom: '4px' }}>{stat.value}</p>
-                      <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>{stat.label}</p>
+                      <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>{stat.label}</p>
+                      <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '28px' : '36px', color: stat.color }}>{stat.value}</p>
                     </div>
                   ))}
                 </div>
 
-                {/* Booking Link Card */}
-                <div style={{ ...styles.card, marginBottom: '24px', background: 'rgba(83,94,74,0.1)', border: '1px solid rgba(83,94,74,0.3)' }}>
-                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', marginBottom: '12px', color: '#F7F3E9' }}>YOUR BOOKING LINK</h3>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <input type="text" readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}?book=1`} style={{ ...styles.input, flex: 1, background: 'rgba(247,243,233,0.08)' }} />
-                    <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}?book=1`)} style={styles.button}>COPY</button>
-                  </div>
-                  <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)', marginTop: '8px' }}>Share this link with event hosts to receive booking requests</p>
-                </div>
-
-                {/* Profile Link Card */}
-                <div style={{ ...styles.card, marginBottom: '24px' }}>
-                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', marginBottom: '12px', color: '#F7F3E9' }}>YOUR PUBLIC PROFILE</h3>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <input type="text" readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}?profile=1`} style={{ ...styles.input, flex: 1, background: 'rgba(247,243,233,0.08)' }} />
-                    <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}?profile=1`)} style={styles.button}>COPY</button>
-                  </div>
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                    <button onClick={() => window.open(`${window.location.origin}?profile=1`, '_blank')} style={{ ...styles.buttonSecondary, fontSize: '12px', padding: '8px 16px' }}>Preview Profile →</button>
-                  </div>
-                </div>
-
+                {/* Recent Requests */}
                 <div style={styles.card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9' }}>RECENT REQUESTS</h2>
+                    <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9' }}>RECENT REQUESTS</h3>
                     <button onClick={() => setActiveTab('requests')} style={{ background: 'transparent', border: 'none', color: '#535E4A', cursor: 'pointer', fontSize: '13px' }}>View All →</button>
                   </div>
-                  
                   {bookingRequests.length === 0 ? (
                     <p style={{ color: 'rgba(247,243,233,0.5)', textAlign: 'center', padding: '32px' }}>No booking requests yet</p>
                   ) : (
-                    bookingRequests.slice(0, 5).map((request, index) => (
-                      <div 
-                        key={request.id || index} 
-                        onClick={() => setSelectedRequest(request)}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', transition: 'background 0.2s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(247,243,233,0.06)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(247,243,233,0.03)'}
-                      >
-                        <div>
-                          <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px', color: '#F7F3E9' }}>{request.event_name}</p>
-                          <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>{request.church_name} • {request.location}</p>
+                    bookingRequests.slice(0, 5).map((request, i) => (
+                      <div key={request.id || i} onClick={() => { setSelectedRequest(request); setDetailTab('details'); }} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', transition: 'background 0.2s' }}>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ color: '#F7F3E9', fontWeight: '500', marginBottom: '4px' }}>{request.event_name || request.church_name}</p>
+                          <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>{request.location} • {request.event_date ? new Date(request.event_date).toLocaleDateString() : 'Date TBD'}</p>
                         </div>
-                        <span style={{ ...styles.badge, ...getStatusBadge(request.status) }}>
-                          {request.status}
-                        </span>
+                        <span style={{ ...styles.badge, ...getStatusBadge(request.status) }}>{request.status}</span>
                       </div>
                     ))
                   )}
@@ -1691,32 +1779,26 @@ export default function PulpitApp() {
             )}
 
             {activeTab === 'requests' && (
-              <div style={styles.card}>
+              <div>
                 {bookingRequests.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '64px' }}>
+                  <div style={{ ...styles.card, textAlign: 'center', padding: '64px' }}>
                     <Briefcase size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                    <p style={{ color: 'rgba(247,243,233,0.5)', marginBottom: '8px' }}>No booking requests yet</p>
-                    <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '13px' }}>Share your booking link to start receiving requests</p>
+                    <p style={{ color: 'rgba(247,243,233,0.5)' }}>No booking requests yet</p>
                   </div>
                 ) : (
-                  bookingRequests.map((request, index) => (
-                    <div 
-                      key={request.id || index} 
-                      onClick={() => setSelectedRequest(request)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', transition: 'background 0.2s' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(247,243,233,0.06)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(247,243,233,0.03)'}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px', color: '#F7F3E9' }}>{request.event_name}</p>
-                        <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)', marginBottom: '4px' }}>{request.church_name} • {request.location}</p>
-                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>
-                          {request.event_date} • {request.attendance} expected • ${request.honorarium}
-                        </p>
+                  bookingRequests.map((request, i) => (
+                    <div key={request.id || i} onClick={() => { setSelectedRequest(request); setDetailTab('details'); }} style={{ ...styles.card, marginBottom: '12px', cursor: 'pointer', transition: 'border-color 0.2s' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '16px', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+                        <div style={{ flex: 1, minWidth: isMobile ? '100%' : 'auto' }}>
+                          <h3 style={{ color: '#F7F3E9', fontWeight: '600', marginBottom: '8px', fontSize: '16px' }}>{request.event_name || request.church_name}</h3>
+                          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> {request.location}</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={14} /> {request.event_date ? new Date(request.event_date).toLocaleDateString() : 'Date TBD'}</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><DollarSign size={14} /> ${request.honorarium || 0}</span>
+                          </div>
+                        </div>
+                        <span style={{ ...styles.badge, ...getStatusBadge(request.status) }}>{request.status}</span>
                       </div>
-                      <span style={{ ...styles.badge, ...getStatusBadge(request.status) }}>
-                        {request.status}
-                      </span>
                     </div>
                   ))
                 )}
@@ -1735,75 +1817,66 @@ export default function PulpitApp() {
             {activeTab === 'profile' && (
               <div style={styles.card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9' }}>YOUR PROFILE</h2>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9' }}>YOUR PROFILE</h3>
                   {!editingProfile ? (
-                    <button onClick={() => setEditingProfile(true)} style={{ ...styles.buttonSecondary, display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}>
-                      <Edit size={16} /> Edit
+                    <button onClick={() => setEditingProfile(true)} style={{ ...styles.buttonSecondary, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px' }}>
+                      <Edit size={14} /> Edit
                     </button>
                   ) : (
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => setEditingProfile(false)} style={{ ...styles.buttonSecondary, padding: '8px 16px' }}>Cancel</button>
-                      <button onClick={handleSaveProfile} disabled={savingProfile} style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', opacity: savingProfile ? 0.6 : 1 }}>
-                        <Save size={16} /> {savingProfile ? 'Saving...' : 'Save'}
+                      <button onClick={handleSaveProfile} disabled={savingProfile} style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', opacity: savingProfile ? 0.6 : 1 }}>
+                        <Save size={14} /> {savingProfile ? 'Saving...' : 'Save'}
+                      </button>
+                      <button onClick={() => { setEditingProfile(false); setProfileForm({ name: currentUser?.name || '', tagline: currentUser?.tagline || '', bio: currentUser?.bio || '', location: currentUser?.location || '', year_started: currentUser?.year_started || '' }); }} style={{ ...styles.buttonSecondary, padding: '10px 16px' }}>
+                        Cancel
                       </button>
                     </div>
                   )}
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '32px' }}>
-                  {/* Avatar */}
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ width: '120px', height: '120px', background: 'linear-gradient(135deg, #535E4A, #3d4638)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '48px', fontWeight: '600', color: '#F7F3E9' }}>
-                      {profileForm.name?.charAt(0) || currentUser?.name?.charAt(0) || '?'}
-                    </div>
-                    <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>{currentUser?.email}</p>
+                
+                <div style={{ display: 'flex', gap: '24px', marginBottom: '32px', alignItems: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
+                  <div style={{ width: isMobile ? '100px' : '120px', height: isMobile ? '100px' : '120px', background: 'linear-gradient(135deg, #535E4A, #3d4638)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? '36px' : '48px', fontWeight: '600', color: '#F7F3E9', flexShrink: 0 }}>
+                    {currentUser?.name?.charAt(0) || 'U'}
                   </div>
+                  <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left' }}>
+                    {editingProfile ? (
+                      <input type="text" value={profileForm.name} onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))} style={{ ...styles.input, fontSize: '24px', fontWeight: '600', marginBottom: '8px' }} placeholder="Your name" />
+                    ) : (
+                      <h2 style={{ fontSize: '24px', fontWeight: '600', color: '#F7F3E9', marginBottom: '8px' }}>{currentUser?.name || 'Your Name'}</h2>
+                    )}
+                    {editingProfile ? (
+                      <input type="text" value={profileForm.tagline} onChange={(e) => setProfileForm(prev => ({ ...prev, tagline: e.target.value }))} style={{ ...styles.input, fontStyle: 'italic' }} placeholder="Your tagline" />
+                    ) : (
+                      <p style={{ color: 'rgba(247,243,233,0.6)', fontStyle: 'italic' }}>{currentUser?.tagline || 'Add a tagline'}</p>
+                    )}
+                  </div>
+                </div>
 
-                  {/* Profile Fields */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={styles.label}>Name</label>
-                      {editingProfile ? (
-                        <input type="text" value={profileForm.name} onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))} style={styles.input} />
-                      ) : (
-                        <p style={{ color: '#F7F3E9', fontSize: '16px' }}>{currentUser?.name || 'Not set'}</p>
-                      )}
-                    </div>
-
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={styles.label}>Tagline</label>
-                      {editingProfile ? (
-                        <input type="text" value={profileForm.tagline} onChange={(e) => setProfileForm(prev => ({ ...prev, tagline: e.target.value }))} style={styles.input} placeholder="e.g., Speaker • Bible Teacher • Youth Pastor" />
-                      ) : (
-                        <p style={{ color: currentUser?.tagline ? '#F7F3E9' : 'rgba(247,243,233,0.4)', fontSize: '16px' }}>{currentUser?.tagline || 'Not set'}</p>
-                      )}
-                    </div>
-
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
+                  <div>
+                    <label style={styles.label}>Bio</label>
+                    {editingProfile ? (
+                      <textarea value={profileForm.bio} onChange={(e) => setProfileForm(prev => ({ ...prev, bio: e.target.value }))} style={{ ...styles.input, minHeight: '120px', resize: 'vertical' }} placeholder="Tell people about yourself..." />
+                    ) : (
+                      <p style={{ color: 'rgba(247,243,233,0.7)', lineHeight: '1.6', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', minHeight: '120px' }}>{currentUser?.bio || 'No bio added yet'}</p>
+                    )}
+                  </div>
+                  <div>
                     <div style={{ marginBottom: '16px' }}>
                       <label style={styles.label}>Location</label>
                       {editingProfile ? (
-                        <input type="text" value={profileForm.location} onChange={(e) => setProfileForm(prev => ({ ...prev, location: e.target.value }))} style={styles.input} placeholder="e.g., Nashville, TN" />
+                        <input type="text" value={profileForm.location} onChange={(e) => setProfileForm(prev => ({ ...prev, location: e.target.value }))} style={styles.input} placeholder="City, State" />
                       ) : (
-                        <p style={{ color: currentUser?.location ? '#F7F3E9' : 'rgba(247,243,233,0.4)', fontSize: '16px' }}>{currentUser?.location || 'Not set'}</p>
+                        <p style={{ color: 'rgba(247,243,233,0.7)', padding: '14px 16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>{currentUser?.location || 'Not specified'}</p>
                       )}
                     </div>
-
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={styles.label}>Bio</label>
-                      {editingProfile ? (
-                        <textarea value={profileForm.bio} onChange={(e) => setProfileForm(prev => ({ ...prev, bio: e.target.value }))} style={{ ...styles.input, minHeight: '120px', resize: 'vertical' }} placeholder="Tell event hosts about yourself..." />
-                      ) : (
-                        <p style={{ color: currentUser?.bio ? '#F7F3E9' : 'rgba(247,243,233,0.4)', fontSize: '14px', lineHeight: '1.6' }}>{currentUser?.bio || 'Not set'}</p>
-                      )}
-                    </div>
-
-                    <div style={{ marginBottom: '16px' }}>
+                    <div>
                       <label style={styles.label}>Year Started Preaching</label>
                       {editingProfile ? (
-                        <input type="number" value={profileForm.year_started} onChange={(e) => setProfileForm(prev => ({ ...prev, year_started: e.target.value }))} style={styles.input} placeholder="e.g., 2015" min="1950" max={new Date().getFullYear()} />
+                        <input type="number" value={profileForm.year_started} onChange={(e) => setProfileForm(prev => ({ ...prev, year_started: e.target.value }))} style={styles.input} placeholder="2015" min="1900" max={new Date().getFullYear()} />
                       ) : (
-                        <p style={{ color: currentUser?.year_started ? '#F7F3E9' : 'rgba(247,243,233,0.4)', fontSize: '16px' }}>
-                          {currentUser?.year_started ? `${currentUser.year_started} (${new Date().getFullYear() - currentUser.year_started}+ years)` : 'Not set'}
+                        <p style={{ color: 'rgba(247,243,233,0.7)', padding: '14px 16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                          {currentUser?.year_started ? `${currentUser.year_started} (${new Date().getFullYear() - parseInt(currentUser.year_started)}+ years)` : 'Not specified'}
                         </p>
                       )}
                     </div>
@@ -1957,10 +2030,88 @@ export default function PulpitApp() {
             })()}
 
             {activeTab === 'documents' && (
-              <div style={styles.card}>
-                <div style={{ textAlign: 'center', padding: '64px' }}>
-                  <FolderOpen size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                  <p style={{ color: 'rgba(247,243,233,0.5)' }}>No documents yet</p>
+              <div>
+                {/* Universal Documents Section */}
+                <div style={{ ...styles.card, marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div>
+                      <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '4px' }}>UNIVERSAL DOCUMENTS</h3>
+                      <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>These documents can be sent to any host</p>
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '16px' }}>
+                    {['W9', 'Contract Template', 'Rider'].map((docType) => {
+                      const existingDoc = universalDocs.find(d => d.document_type === docType.toLowerCase().replace(' ', '_'));
+                      return (
+                        <div key={docType} style={{ padding: '20px', background: 'rgba(247,243,233,0.03)', borderRadius: '12px', border: existingDoc ? '1px solid rgba(76,175,80,0.3)' : '1px solid rgba(247,243,233,0.08)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <h4 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '14px', letterSpacing: '1px', color: '#F7F3E9' }}>{docType}</h4>
+                            {existingDoc && <CheckCircle size={16} color="#4CAF50" />}
+                          </div>
+                          {existingDoc ? (
+                            <div>
+                              <p style={{ color: 'rgba(247,243,233,0.7)', fontSize: '13px', marginBottom: '8px' }}>{existingDoc.name}</p>
+                              <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '11px' }}>Uploaded {new Date(existingDoc.created_at).toLocaleDateString()}</p>
+                            </div>
+                          ) : (
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'rgba(247,243,233,0.05)', borderRadius: '8px', cursor: 'pointer', color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>
+                              <Upload size={16} />
+                              Upload {docType}
+                              <input
+                                type="file"
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                  if (e.target.files[0]) {
+                                    handleDocumentUpload(null, docType.toLowerCase().replace(' ', '_'), e.target.files[0], true);
+                                  }
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Event Documents Section */}
+                <div style={styles.card}>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '4px' }}>EVENT DOCUMENTS</h3>
+                  <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)', marginBottom: '24px' }}>Documents organized by event</p>
+                  
+                  {Object.keys(getEventDocs()).length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '48px', background: 'rgba(247,243,233,0.02)', borderRadius: '12px' }}>
+                      <FolderOpen size={40} color="rgba(247,243,233,0.2)" style={{ marginBottom: '12px' }} />
+                      <p style={{ color: 'rgba(247,243,233,0.5)' }}>No event documents yet</p>
+                      <p style={{ color: 'rgba(247,243,233,0.3)', fontSize: '13px', marginTop: '8px' }}>Documents uploaded in event requests will appear here</p>
+                    </div>
+                  ) : (
+                    Object.entries(getEventDocs()).map(([requestId, { eventName, docs }]) => (
+                      <div key={requestId} style={{ marginBottom: '20px', padding: '20px', background: 'rgba(247,243,233,0.02)', borderRadius: '12px' }}>
+                        <h4 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '14px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Calendar size={14} />
+                          {eventName}
+                        </h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px' }}>
+                          {docs.map((doc, i) => (
+                            <div key={doc.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(247,243,233,0.03)', borderRadius: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <FileText size={16} color="rgba(247,243,233,0.5)" />
+                                <div>
+                                  <p style={{ color: '#F7F3E9', fontSize: '13px' }}>{doc.name}</p>
+                                  <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '11px', textTransform: 'capitalize' }}>{doc.document_type}</p>
+                                </div>
+                              </div>
+                              <span style={{ ...styles.badge, fontSize: '10px', padding: '4px 8px', background: doc.status === 'signed' ? 'rgba(76,175,80,0.15)' : 'rgba(255,180,0,0.15)', color: doc.status === 'signed' ? '#4CAF50' : '#FFB400' }}>
+                                {doc.status}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
