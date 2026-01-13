@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft, ChevronRight, Menu, Edit, Save, Upload, Send, Plane, Car, Coffee, Bed, Trash2, Mic, Music, AlertCircle, Image, Video, FileCheck, Link, Share2, Download, Eye, EyeOff, Lock, Globe, Smartphone, UserPlus, Shield, Crown, UserMinus } from 'lucide-react';
+import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft, ChevronRight, Menu, Edit, Save, Upload, Send, Plane, Car, Coffee, Bed, Trash2, Mic, Music, AlertCircle, Image, Video, FileCheck, Link, Share2, Download, Eye, EyeOff, Lock, Globe, Smartphone, UserPlus, Shield, Crown, UserMinus, Youtube, Instagram, Twitter, Facebook, Linkedin, ExternalLink, ClipboardList, AlarmClock, ToggleLeft } from 'lucide-react';
 
 // TWO different API bases in Xano
 const AUTH_API = 'https://x8ki-letl-twmt.n7.xano.io/api:fwui2Env';
@@ -153,6 +153,8 @@ export default function PulpitApp() {
   const [documents, setDocuments] = useState([]);
   const [resources, setResources] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
+  const [customForms, setCustomForms] = useState([]);
+  const [sermons, setSermons] = useState([]);
   
   // Selected request for detail view
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -174,13 +176,25 @@ export default function PulpitApp() {
     bio: '',
     location: '',
     year_started: '',
+    youtube: '',
+    instagram: '',
+    twitter: '',
+    facebook: '',
+    linkedin: '',
+    website: '',
   });
   const [savingProfile, setSavingProfile] = useState(false);
+  
+  // Sermons state
+  const [showAddSermon, setShowAddSermon] = useState(false);
+  const [newSermonForm, setNewSermonForm] = useState({ title: '', url: '', date: '', description: '' });
+  const [addingSermon, setAddingSermon] = useState(false);
   
   // Messaging state
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [messagesSubTab, setMessagesSubTab] = useState('conversations');
   
   // Document upload state
   const [uploadingDoc, setUploadingDoc] = useState(false);
@@ -213,10 +227,61 @@ export default function PulpitApp() {
     new_requests: true,
     messages: true,
     document_signed: true,
+    document_uploaded: true,
     event_reminders: true,
     email_notifications: true,
     push_notifications: false,
   });
+  
+  // Event Reminder Settings
+  const [eventReminderSettings, setEventReminderSettings] = useState({
+    enabled: true,
+    one_week: true,
+    three_days: true,
+    one_day: true,
+    day_of: true,
+    custom_days: '',
+    reminder_time: '09:00',
+    include_itinerary: true,
+    include_documents: false,
+  });
+  
+  // Profile Privacy Settings
+  const [profilePrivacySettings, setProfilePrivacySettings] = useState({
+    profile_public: true,
+    show_email: false,
+    show_phone: false,
+    show_location: true,
+    show_bio: true,
+    show_experience: true,
+    show_social_media: true,
+    show_sermons: true,
+    accepting_bookings: true,
+  });
+  
+  // Form Builder state
+  const [showFormBuilder, setShowFormBuilder] = useState(false);
+  const [editingForm, setEditingForm] = useState(null);
+  const [formBuilderData, setFormBuilderData] = useState({ name: '', description: '', fields: [] });
+  const [savingForm, setSavingForm] = useState(false);
+  
+  // Booking Form Customization
+  const [bookingFormConfig, setBookingFormConfig] = useState({
+    fields: {
+      firstName: { enabled: true, required: true, label: 'First Name' },
+      lastName: { enabled: true, required: true, label: 'Last Name' },
+      email: { enabled: true, required: true, label: 'Email' },
+      phone: { enabled: true, required: true, label: 'Phone' },
+      churchName: { enabled: true, required: true, label: 'Church/Organization' },
+      eventDate: { enabled: true, required: true, label: 'Event Date' },
+      honorarium: { enabled: true, required: true, label: 'Honorarium' },
+      attendance: { enabled: true, required: true, label: 'Expected Attendance' },
+      eventTheme: { enabled: true, required: false, label: 'Event Theme' },
+      additionalComments: { enabled: true, required: false, label: 'Additional Comments' },
+    },
+    customFields: [],
+  });
+  
   const [savingSettings, setSavingSettings] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -318,13 +383,15 @@ export default function PulpitApp() {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [requestsData, messagesData, notificationsData, documentsData, resourcesData, teamData] = await Promise.all([
+      const [requestsData, messagesData, notificationsData, documentsData, resourcesData, teamData, formsData, sermonsData] = await Promise.all([
         apiCall(DATA_API, '/booking_request').catch(() => []),
         apiCall(DATA_API, '/message').catch(() => []),
         apiCall(DATA_API, '/notification').catch(() => []),
         apiCall(DATA_API, '/document').catch(() => []),
         apiCall(DATA_API, '/resource').catch(() => []),
         apiCall(DATA_API, '/team_member').catch(() => []),
+        apiCall(DATA_API, '/custom_form').catch(() => []),
+        apiCall(DATA_API, '/sermon').catch(() => []),
       ]);
       
       setBookingRequests(Array.isArray(requestsData) ? requestsData : []);
@@ -333,6 +400,8 @@ export default function PulpitApp() {
       setDocuments(Array.isArray(documentsData) ? documentsData : []);
       setResources(Array.isArray(resourcesData) ? resourcesData : []);
       setTeamMembers(Array.isArray(teamData) ? teamData : []);
+      setCustomForms(Array.isArray(formsData) ? formsData : []);
+      setSermons(Array.isArray(sermonsData) ? sermonsData : []);
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -348,6 +417,12 @@ export default function PulpitApp() {
         bio: currentUser.bio || '',
         location: currentUser.location || '',
         year_started: currentUser.year_started || '',
+        youtube: currentUser.youtube || '',
+        instagram: currentUser.instagram || '',
+        twitter: currentUser.twitter || '',
+        facebook: currentUser.facebook || '',
+        linkedin: currentUser.linkedin || '',
+        website: currentUser.website || '',
       });
     }
   }, [currentUser]);
@@ -623,6 +698,188 @@ export default function PulpitApp() {
     setSavingSettings(false);
   };
 
+  const handleSaveEventReminderSettings = async () => {
+    setSavingSettings(true);
+    try {
+      localStorage.setItem('eventReminderSettings', JSON.stringify(eventReminderSettings));
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Failed to save reminder settings:', error);
+    }
+    setSavingSettings(false);
+  };
+
+  const handleSavePrivacySettings = async () => {
+    setSavingSettings(true);
+    try {
+      localStorage.setItem('profilePrivacySettings', JSON.stringify(profilePrivacySettings));
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Failed to save privacy settings:', error);
+    }
+    setSavingSettings(false);
+  };
+
+  const handleSaveBookingFormConfig = async () => {
+    setSavingSettings(true);
+    try {
+      localStorage.setItem('bookingFormConfig', JSON.stringify(bookingFormConfig));
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Failed to save booking form config:', error);
+    }
+    setSavingSettings(false);
+  };
+
+  // Sermon functions
+  const handleAddSermon = async () => {
+    if (!newSermonForm.title || !newSermonForm.url) return;
+    setAddingSermon(true);
+    try {
+      await apiCall(DATA_API, '/sermon', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...newSermonForm,
+          user_id: currentUser.id,
+          created_at: new Date().toISOString(),
+        }),
+      });
+      setNewSermonForm({ title: '', url: '', date: '', description: '' });
+      setShowAddSermon(false);
+      const sermonsData = await apiCall(DATA_API, '/sermon').catch(() => []);
+      setSermons(Array.isArray(sermonsData) ? sermonsData : []);
+    } catch (error) {
+      console.error('Failed to add sermon:', error);
+    }
+    setAddingSermon(false);
+  };
+
+  const handleDeleteSermon = async (sermonId) => {
+    try {
+      await apiCall(DATA_API, `/sermon/${sermonId}`, { method: 'DELETE' });
+      const sermonsData = await apiCall(DATA_API, '/sermon').catch(() => []);
+      setSermons(Array.isArray(sermonsData) ? sermonsData : []);
+    } catch (error) {
+      console.error('Failed to delete sermon:', error);
+    }
+  };
+
+  const getYouTubeId = (url) => {
+    if (!url) return null;
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  };
+
+  // Custom Form functions
+  const handleSaveForm = async () => {
+    if (!formBuilderData.name) return;
+    setSavingForm(true);
+    try {
+      if (editingForm) {
+        await apiCall(DATA_API, `/custom_form/${editingForm.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(formBuilderData),
+        });
+      } else {
+        await apiCall(DATA_API, '/custom_form', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...formBuilderData,
+            user_id: currentUser.id,
+            created_at: new Date().toISOString(),
+          }),
+        });
+      }
+      setFormBuilderData({ name: '', description: '', fields: [] });
+      setEditingForm(null);
+      setShowFormBuilder(false);
+      const formsData = await apiCall(DATA_API, '/custom_form').catch(() => []);
+      setCustomForms(Array.isArray(formsData) ? formsData : []);
+    } catch (error) {
+      console.error('Failed to save form:', error);
+    }
+    setSavingForm(false);
+  };
+
+  const handleDeleteForm = async (formId) => {
+    try {
+      await apiCall(DATA_API, `/custom_form/${formId}`, { method: 'DELETE' });
+      const formsData = await apiCall(DATA_API, '/custom_form').catch(() => []);
+      setCustomForms(Array.isArray(formsData) ? formsData : []);
+    } catch (error) {
+      console.error('Failed to delete form:', error);
+    }
+  };
+
+  const addFieldToForm = (fieldType) => {
+    const newField = {
+      id: Date.now(),
+      type: fieldType,
+      label: '',
+      required: false,
+      options: fieldType === 'select' || fieldType === 'checkbox' || fieldType === 'radio' ? [''] : undefined,
+    };
+    setFormBuilderData(prev => ({ ...prev, fields: [...prev.fields, newField] }));
+  };
+
+  const updateFormField = (fieldId, updates) => {
+    setFormBuilderData(prev => ({
+      ...prev,
+      fields: prev.fields.map(f => f.id === fieldId ? { ...f, ...updates } : f),
+    }));
+  };
+
+  const removeFormField = (fieldId) => {
+    setFormBuilderData(prev => ({
+      ...prev,
+      fields: prev.fields.filter(f => f.id !== fieldId),
+    }));
+  };
+
+  // Get all conversations grouped by booking
+  const getAllConversations = () => {
+    const conversationMap = {};
+    messages.forEach(msg => {
+      const key = msg.booking_request_id || 'general';
+      if (!conversationMap[key]) {
+        conversationMap[key] = { booking_request_id: msg.booking_request_id, messages: [], lastMessage: null, unreadCount: 0 };
+      }
+      conversationMap[key].messages.push(msg);
+      if (!conversationMap[key].lastMessage || new Date(msg.created_at) > new Date(conversationMap[key].lastMessage.created_at)) {
+        conversationMap[key].lastMessage = msg;
+      }
+      if (!msg.read && msg.receiver_user_id === currentUser?.id) {
+        conversationMap[key].unreadCount++;
+      }
+    });
+    return Object.values(conversationMap).sort((a, b) => {
+      const aDate = a.lastMessage ? new Date(a.lastMessage.created_at) : new Date(0);
+      const bDate = b.lastMessage ? new Date(b.lastMessage.created_at) : new Date(0);
+      return bDate - aDate;
+    });
+  };
+
+  // Form field types for builder
+  const formFieldTypes = [
+    { value: 'text', label: 'Text Input' },
+    { value: 'textarea', label: 'Text Area' },
+    { value: 'number', label: 'Number' },
+    { value: 'email', label: 'Email' },
+    { value: 'phone', label: 'Phone' },
+    { value: 'date', label: 'Date' },
+    { value: 'select', label: 'Dropdown' },
+    { value: 'checkbox', label: 'Checkboxes' },
+    { value: 'radio', label: 'Radio Buttons' },
+  ];
+
+  // Toggle component
+  const Toggle = ({ value, onChange, disabled = false }) => (
+    <button onClick={() => !disabled && onChange(!value)} disabled={disabled} style={{ width: '48px', height: '28px', background: value ? '#535E4A' : 'rgba(247,243,233,0.1)', borderRadius: '14px', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', position: 'relative', transition: 'background 0.2s', opacity: disabled ? 0.5 : 1 }}>
+      <div style={{ width: '22px', height: '22px', background: '#F7F3E9', borderRadius: '50%', position: 'absolute', top: '3px', left: value ? '23px' : '3px', transition: 'left 0.2s' }} />
+    </button>
+  );
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthLoading(true);
@@ -794,6 +1051,7 @@ export default function PulpitApp() {
     { id: 'profile', icon: User, label: 'Profile' },
     { id: 'resources', icon: FileText, label: 'Resources' },
     { id: 'documents', icon: FolderOpen, label: 'Documents' },
+    { id: 'forms', icon: ClipboardList, label: 'Forms' },
     { id: 'team', icon: Users, label: 'Team' },
     { id: 'settings', icon: Settings, label: 'Settings' },
   ];
@@ -2128,11 +2386,76 @@ export default function PulpitApp() {
             )}
 
             {activeTab === 'messages' && (
-              <div style={styles.card}>
-                <div style={{ textAlign: 'center', padding: '64px' }}>
-                  <MessageSquare size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                  <p style={{ color: 'rgba(247,243,233,0.5)' }}>No messages yet</p>
+              <div>
+                {/* Sub-tabs */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+                  <button onClick={() => setMessagesSubTab('conversations')} style={{ padding: '10px 20px', background: messagesSubTab === 'conversations' ? 'rgba(83,94,74,0.3)' : 'transparent', border: messagesSubTab === 'conversations' ? '1px solid rgba(83,94,74,0.5)' : '1px solid rgba(247,243,233,0.1)', borderRadius: '8px', color: messagesSubTab === 'conversations' ? '#F7F3E9' : 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '13px' }}>
+                    By Booking
+                  </button>
+                  <button onClick={() => setMessagesSubTab('all')} style={{ padding: '10px 20px', background: messagesSubTab === 'all' ? 'rgba(83,94,74,0.3)' : 'transparent', border: messagesSubTab === 'all' ? '1px solid rgba(83,94,74,0.5)' : '1px solid rgba(247,243,233,0.1)', borderRadius: '8px', color: messagesSubTab === 'all' ? '#F7F3E9' : 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '13px' }}>
+                    All Messages
+                  </button>
                 </div>
+
+                {messagesSubTab === 'conversations' ? (
+                  <div style={styles.card}>
+                    <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', marginBottom: '20px' }}>CONVERSATIONS BY BOOKING</h3>
+                    {getAllConversations().length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '64px' }}>
+                        <MessageSquare size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
+                        <p style={{ color: 'rgba(247,243,233,0.5)' }}>No messages yet</p>
+                      </div>
+                    ) : (
+                      getAllConversations().map((conv, i) => {
+                        const request = bookingRequests.find(r => r.id === conv.booking_request_id);
+                        return (
+                          <div key={i} onClick={() => { if (request) { setSelectedRequest(request); setDetailTab('messages'); } }} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', background: conv.unreadCount > 0 ? 'rgba(83,94,74,0.1)' : 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', cursor: request ? 'pointer' : 'default' }}>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(247,243,233,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <MessageSquare size={20} color="rgba(247,243,233,0.5)" />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ color: '#F7F3E9', fontWeight: '500', marginBottom: '4px' }}>{request?.event_name || request?.church_name || 'General Conversation'}</p>
+                              <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{conv.lastMessage?.content || 'No messages'}</p>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '11px', marginBottom: '4px' }}>{conv.lastMessage ? new Date(conv.lastMessage.created_at).toLocaleDateString() : ''}</p>
+                              {conv.unreadCount > 0 && <span style={{ background: '#535E4A', color: '#F7F3E9', fontSize: '10px', padding: '2px 8px', borderRadius: '10px' }}>{conv.unreadCount}</span>}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                ) : (
+                  <div style={styles.card}>
+                    <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', marginBottom: '20px' }}>ALL MESSAGES</h3>
+                    {messages.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '64px' }}>
+                        <MessageSquare size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
+                        <p style={{ color: 'rgba(247,243,233,0.5)' }}>No messages yet</p>
+                      </div>
+                    ) : (
+                      <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                        {messages.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map((msg, i) => {
+                          const isSent = msg.sender_user_id === currentUser?.id;
+                          const request = bookingRequests.find(r => r.id === msg.booking_request_id);
+                          return (
+                            <div key={i} onClick={() => { if (request) { setSelectedRequest(request); setDetailTab('messages'); } }} style={{ padding: '16px', background: !msg.read && !isSent ? 'rgba(83,94,74,0.1)' : 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', cursor: request ? 'pointer' : 'default', borderLeft: isSent ? '3px solid #535E4A' : '3px solid rgba(247,243,233,0.2)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '12px', color: isSent ? '#535E4A' : 'rgba(247,243,233,0.5)', fontWeight: '500' }}>
+                                  {isSent ? 'You' : 'Host'}
+                                  {request && <span style={{ color: 'rgba(247,243,233,0.4)' }}> • {request.event_name || request.church_name}</span>}
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'rgba(247,243,233,0.4)' }}>{new Date(msg.created_at).toLocaleString()}</span>
+                              </div>
+                              <p style={{ color: '#F7F3E9', fontSize: '14px', lineHeight: '1.5' }}>{msg.content}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -2204,6 +2527,128 @@ export default function PulpitApp() {
                     </div>
                   </div>
                 </div>
+
+                {/* Social Media Section */}
+                <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid rgba(247,243,233,0.08)' }}>
+                  <h4 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', marginBottom: '20px' }}>SOCIAL MEDIA</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '16px' }}>
+                    {[
+                      { key: 'youtube', label: 'YouTube', icon: Youtube, placeholder: 'https://youtube.com/@yourhandle' },
+                      { key: 'instagram', label: 'Instagram', icon: Instagram, placeholder: '@yourhandle' },
+                      { key: 'twitter', label: 'X / Twitter', icon: Twitter, placeholder: '@yourhandle' },
+                      { key: 'facebook', label: 'Facebook', icon: Facebook, placeholder: 'https://facebook.com/...' },
+                      { key: 'linkedin', label: 'LinkedIn', icon: Linkedin, placeholder: 'https://linkedin.com/in/...' },
+                      { key: 'website', label: 'Website', icon: Globe, placeholder: 'https://yourwebsite.com' },
+                    ].map((social) => {
+                      const SocialIcon = social.icon;
+                      return (
+                        <div key={social.key}>
+                          <label style={{ ...styles.label, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <SocialIcon size={12} /> {social.label}
+                          </label>
+                          {editingProfile ? (
+                            <input type="text" value={profileForm[social.key]} onChange={(e) => setProfileForm(prev => ({ ...prev, [social.key]: e.target.value }))} style={styles.input} placeholder={social.placeholder} />
+                          ) : (
+                            <div style={{ padding: '14px 16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                              {currentUser?.[social.key] ? (
+                                <a href={currentUser[social.key].startsWith('http') ? currentUser[social.key] : `https://${currentUser[social.key]}`} target="_blank" rel="noopener noreferrer" style={{ color: '#535E4A', display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+                                  <ExternalLink size={14} /> {currentUser[social.key]}
+                                </a>
+                              ) : (
+                                <span style={{ color: 'rgba(247,243,233,0.4)' }}>Not added</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sermons Section */}
+              <div style={{ ...styles.card, marginTop: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9' }}>SERMONS</h3>
+                  <button onClick={() => setShowAddSermon(true)} style={{ ...styles.buttonSecondary, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px' }}>
+                    <Plus size={14} /> Add Sermon
+                  </button>
+                </div>
+
+                {sermons.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '48px', background: 'rgba(247,243,233,0.02)', borderRadius: '10px' }}>
+                    <Youtube size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
+                    <p style={{ color: 'rgba(247,243,233,0.5)', marginBottom: '8px' }}>No sermons added yet</p>
+                    <p style={{ color: 'rgba(247,243,233,0.3)', fontSize: '13px' }}>Add links to your sermons on YouTube or other platforms</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
+                    {sermons.map((sermon, i) => {
+                      const videoId = getYouTubeId(sermon.url);
+                      return (
+                        <div key={sermon.id || i} style={{ background: 'rgba(247,243,233,0.03)', borderRadius: '12px', overflow: 'hidden' }}>
+                          {videoId && (
+                            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+                              <iframe src={`https://www.youtube.com/embed/${videoId}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                            </div>
+                          )}
+                          <div style={{ padding: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '12px' }}>
+                              <div style={{ flex: 1 }}>
+                                <h4 style={{ color: '#F7F3E9', fontWeight: '500', marginBottom: '4px' }}>{sermon.title}</h4>
+                                {sermon.date && <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px', marginBottom: '4px' }}>{new Date(sermon.date).toLocaleDateString()}</p>}
+                                {sermon.description && <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>{sermon.description}</p>}
+                                {!videoId && (
+                                  <a href={sermon.url} target="_blank" rel="noopener noreferrer" style={{ color: '#535E4A', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
+                                    <ExternalLink size={14} /> Watch Video
+                                  </a>
+                                )}
+                              </div>
+                              <button onClick={() => handleDeleteSermon(sermon.id)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.3)', cursor: 'pointer', padding: '4px' }}>
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Add Sermon Modal */}
+                {showAddSermon && (
+                  <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ ...styles.card, background: '#0A0A0A', maxWidth: '500px', width: '100%' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                        <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '20px', letterSpacing: '1px', color: '#F7F3E9' }}>ADD SERMON</h2>
+                        <button onClick={() => setShowAddSermon(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer' }}><X size={20} /></button>
+                      </div>
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={styles.label}>Title *</label>
+                        <input type="text" value={newSermonForm.title} onChange={(e) => setNewSermonForm(prev => ({ ...prev, title: e.target.value }))} style={styles.input} placeholder="Sermon title" />
+                      </div>
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={styles.label}>Video URL *</label>
+                        <input type="url" value={newSermonForm.url} onChange={(e) => setNewSermonForm(prev => ({ ...prev, url: e.target.value }))} style={styles.input} placeholder="https://youtube.com/watch?v=..." />
+                        <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '12px', marginTop: '6px' }}>YouTube links will display as embedded videos</p>
+                      </div>
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={styles.label}>Date Preached</label>
+                        <input type="date" value={newSermonForm.date} onChange={(e) => setNewSermonForm(prev => ({ ...prev, date: e.target.value }))} style={styles.input} />
+                      </div>
+                      <div style={{ marginBottom: '24px' }}>
+                        <label style={styles.label}>Description</label>
+                        <textarea value={newSermonForm.description} onChange={(e) => setNewSermonForm(prev => ({ ...prev, description: e.target.value }))} style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }} placeholder="Brief description..." />
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button onClick={() => setShowAddSermon(false)} style={{ ...styles.buttonSecondary, flex: 1 }}>Cancel</button>
+                        <button onClick={handleAddSermon} disabled={addingSermon || !newSermonForm.title || !newSermonForm.url} style={{ ...styles.button, flex: 1, opacity: addingSermon || !newSermonForm.title || !newSermonForm.url ? 0.5 : 1 }}>
+                          {addingSermon ? 'ADDING...' : 'ADD SERMON'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2581,6 +3026,113 @@ export default function PulpitApp() {
               </div>
             )}
 
+            {activeTab === 'forms' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '14px' }}>Create custom forms to send to hosts, collect information, and more</p>
+                  <button onClick={() => { setFormBuilderData({ name: '', description: '', fields: [] }); setEditingForm(null); setShowFormBuilder(true); }} style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Plus size={16} /> CREATE FORM
+                  </button>
+                </div>
+
+                {customForms.length === 0 ? (
+                  <div style={{ ...styles.card, textAlign: 'center', padding: '64px' }}>
+                    <ClipboardList size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
+                    <p style={{ color: 'rgba(247,243,233,0.5)', marginBottom: '8px' }}>No custom forms yet</p>
+                    <p style={{ color: 'rgba(247,243,233,0.3)', fontSize: '13px', marginBottom: '24px' }}>Create forms to collect information from hosts or send questionnaires</p>
+                    <button onClick={() => setShowFormBuilder(true)} style={{ ...styles.buttonSecondary, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <Plus size={16} /> Create Your First Form
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
+                    {customForms.map((form, i) => (
+                      <div key={form.id || i} style={styles.card}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+                          <div>
+                            <h4 style={{ color: '#F7F3E9', fontWeight: '500', marginBottom: '4px' }}>{form.name}</h4>
+                            <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>{form.description || 'No description'}</p>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={() => { setFormBuilderData(form); setEditingForm(form); setShowFormBuilder(true); }} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer' }}><Edit size={16} /></button>
+                            <button onClick={() => handleDeleteForm(form.id)} style={{ background: 'transparent', border: 'none', color: 'rgba(239,68,68,0.7)', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                          </div>
+                        </div>
+                        <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '12px' }}>{form.fields?.length || 0} fields</p>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                          <button style={{ ...styles.buttonSecondary, flex: 1, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Share2 size={14} /> Share</button>
+                          <button style={{ ...styles.buttonSecondary, flex: 1, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Eye size={14} /> Preview</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Form Builder Modal */}
+                {showFormBuilder && (
+                  <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+                    <div style={{ ...styles.card, background: '#0A0A0A', maxWidth: '700px', width: '100%' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                        <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '20px', letterSpacing: '1px', color: '#F7F3E9' }}>{editingForm ? 'EDIT FORM' : 'CREATE FORM'}</h2>
+                        <button onClick={() => setShowFormBuilder(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer' }}><X size={20} /></button>
+                      </div>
+                      <div style={{ marginBottom: '24px' }}>
+                        <label style={styles.label}>Form Name *</label>
+                        <input type="text" value={formBuilderData.name} onChange={(e) => setFormBuilderData(prev => ({ ...prev, name: e.target.value }))} style={styles.input} placeholder="e.g., Pre-Event Questionnaire" />
+                      </div>
+                      <div style={{ marginBottom: '24px' }}>
+                        <label style={styles.label}>Description</label>
+                        <textarea value={formBuilderData.description} onChange={(e) => setFormBuilderData(prev => ({ ...prev, description: e.target.value }))} style={{ ...styles.input, minHeight: '60px', resize: 'vertical' }} placeholder="What is this form for?" />
+                      </div>
+                      <div style={{ marginBottom: '24px' }}>
+                        <label style={{ ...styles.label, marginBottom: '16px' }}>Form Fields</label>
+                        {formBuilderData.fields.length === 0 ? (
+                          <p style={{ color: 'rgba(247,243,233,0.4)', textAlign: 'center', padding: '24px', background: 'rgba(247,243,233,0.02)', borderRadius: '10px' }}>No fields added yet. Click a field type below to add.</p>
+                        ) : (
+                          <div style={{ marginBottom: '16px' }}>
+                            {formBuilderData.fields.map((field) => (
+                              <div key={field.id} style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', border: '1px solid rgba(247,243,233,0.08)' }}>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'start' }}>
+                                  <div style={{ flex: 1 }}>
+                                    <input type="text" value={field.label} onChange={(e) => updateFormField(field.id, { label: e.target.value })} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Field label" />
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                      <span style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px' }}>{field.type}</span>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'rgba(247,243,233,0.5)', fontSize: '12px', cursor: 'pointer' }}>
+                                        <input type="checkbox" checked={field.required} onChange={(e) => updateFormField(field.id, { required: e.target.checked })} />
+                                        Required
+                                      </label>
+                                    </div>
+                                    {(field.type === 'select' || field.type === 'checkbox' || field.type === 'radio') && (
+                                      <div style={{ marginTop: '12px' }}>
+                                        <label style={{ ...styles.label, fontSize: '10px' }}>Options (one per line)</label>
+                                        <textarea value={field.options?.join('\n') || ''} onChange={(e) => updateFormField(field.id, { options: e.target.value.split('\n') })} style={{ ...styles.input, minHeight: '60px' }} placeholder="Option 1&#10;Option 2&#10;Option 3" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <button onClick={() => removeFormField(field.id)} style={{ background: 'transparent', border: 'none', color: 'rgba(239,68,68,0.7)', cursor: 'pointer', padding: '4px' }}><Trash2 size={16} /></button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {formFieldTypes.map((type) => (
+                            <button key={type.value} onClick={() => addFieldToForm(type.value)} style={{ ...styles.buttonSecondary, padding: '8px 12px', fontSize: '12px' }}>+ {type.label}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button onClick={() => setShowFormBuilder(false)} style={{ ...styles.buttonSecondary, flex: 1 }}>Cancel</button>
+                        <button onClick={handleSaveForm} disabled={savingForm || !formBuilderData.name} style={{ ...styles.button, flex: 1, opacity: savingForm || !formBuilderData.name ? 0.5 : 1 }}>
+                          {savingForm ? 'SAVING...' : editingForm ? 'UPDATE FORM' : 'CREATE FORM'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === 'team' && (
               <div>
                 {/* Header */}
@@ -2728,7 +3280,9 @@ export default function PulpitApp() {
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '16px', overflowX: 'auto' }}>
                   {[
                     { id: 'notifications', label: 'Notifications', icon: Bell },
+                    { id: 'reminders', label: 'Event Reminders', icon: AlarmClock },
                     { id: 'profile', label: 'Profile & Privacy', icon: Lock },
+                    { id: 'booking_form', label: 'Booking Form', icon: ClipboardList },
                     { id: 'app', label: 'App Settings', icon: Smartphone },
                   ].map((tab) => (
                     <button key={tab.id} onClick={() => setSettingsTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: settingsTab === tab.id ? 'rgba(83,94,74,0.3)' : 'transparent', border: settingsTab === tab.id ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent', borderRadius: '8px', color: settingsTab === tab.id ? '#F7F3E9' : 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>
@@ -2749,6 +3303,7 @@ export default function PulpitApp() {
                         { key: 'new_requests', label: 'New booking requests', desc: 'Get notified when someone submits a booking request' },
                         { key: 'messages', label: 'Messages', desc: 'Get notified when you receive a new message' },
                         { key: 'document_signed', label: 'Document signed', desc: 'Get notified when a document is signed' },
+                        { key: 'document_uploaded', label: 'Document uploaded', desc: 'Get notified when a new document is uploaded' },
                         { key: 'event_reminders', label: 'Event reminders', desc: 'Get reminders about upcoming events' },
                       ].map((setting) => (
                         <div key={setting.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
@@ -2787,6 +3342,71 @@ export default function PulpitApp() {
                   </div>
                 )}
 
+                {/* Event Reminders Settings */}
+                {settingsTab === 'reminders' && (
+                  <div style={styles.card}>
+                    <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>EVENT REMINDER SETTINGS</h3>
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '24px' }}>
+                      <div>
+                        <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>Enable Event Reminders</p>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Receive reminders before your upcoming events</p>
+                      </div>
+                      <Toggle value={eventReminderSettings.enabled} onChange={(val) => setEventReminderSettings(prev => ({ ...prev, enabled: val }))} />
+                    </div>
+
+                    <div style={{ marginBottom: '24px', opacity: eventReminderSettings.enabled ? 1 : 0.5 }}>
+                      <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Reminder Schedule</h4>
+                      {[
+                        { key: 'one_week', label: '1 Week Before', desc: 'Get a reminder 7 days before your event' },
+                        { key: 'three_days', label: '3 Days Before', desc: 'Get a reminder 3 days before your event' },
+                        { key: 'one_day', label: '1 Day Before', desc: 'Get a reminder the day before your event' },
+                        { key: 'day_of', label: 'Day Of', desc: 'Get a reminder on the day of your event' },
+                      ].map((setting) => (
+                        <div key={setting.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
+                          <div>
+                            <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>{setting.label}</p>
+                            <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>{setting.desc}</p>
+                          </div>
+                          <Toggle value={eventReminderSettings[setting.key]} onChange={(val) => setEventReminderSettings(prev => ({ ...prev, [setting.key]: val }))} disabled={!eventReminderSettings.enabled} />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ marginBottom: '24px', opacity: eventReminderSettings.enabled ? 1 : 0.5 }}>
+                      <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Custom Reminder Days</h4>
+                      <input type="text" value={eventReminderSettings.custom_days} onChange={(e) => setEventReminderSettings(prev => ({ ...prev, custom_days: e.target.value }))} style={styles.input} placeholder="e.g., 14, 10, 5" disabled={!eventReminderSettings.enabled} />
+                      <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '12px', marginTop: '8px' }}>Enter comma-separated numbers for additional reminder days</p>
+                    </div>
+
+                    <div style={{ marginBottom: '24px', opacity: eventReminderSettings.enabled ? 1 : 0.5 }}>
+                      <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Reminder Time</h4>
+                      <input type="time" value={eventReminderSettings.reminder_time} onChange={(e) => setEventReminderSettings(prev => ({ ...prev, reminder_time: e.target.value }))} style={{ ...styles.input, maxWidth: '200px' }} disabled={!eventReminderSettings.enabled} />
+                      <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '12px', marginTop: '8px' }}>Time of day to receive reminders</p>
+                    </div>
+
+                    <div style={{ marginBottom: '24px', opacity: eventReminderSettings.enabled ? 1 : 0.5 }}>
+                      <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Reminder Content</h4>
+                      {[
+                        { key: 'include_itinerary', label: 'Include Itinerary', desc: 'Include your event itinerary in reminder notifications' },
+                        { key: 'include_documents', label: 'Include Document Status', desc: 'Include status of required documents' },
+                      ].map((setting) => (
+                        <div key={setting.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
+                          <div>
+                            <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>{setting.label}</p>
+                            <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>{setting.desc}</p>
+                          </div>
+                          <Toggle value={eventReminderSettings[setting.key]} onChange={(val) => setEventReminderSettings(prev => ({ ...prev, [setting.key]: val }))} disabled={!eventReminderSettings.enabled} />
+                        </div>
+                      ))}
+                    </div>
+
+                    <button onClick={handleSaveEventReminderSettings} disabled={savingSettings} style={{ ...styles.button, opacity: savingSettings ? 0.6 : 1 }}>
+                      {savingSettings ? 'SAVING...' : 'SAVE REMINDER SETTINGS'}
+                    </button>
+                  </div>
+                )}
+
                 {/* Profile & Privacy Settings */}
                 {settingsTab === 'profile' && (
                   <div style={styles.card}>
@@ -2803,26 +3423,49 @@ export default function PulpitApp() {
                             <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Allow anyone to view your speaker profile</p>
                           </div>
                         </div>
-                        <button style={{ width: '48px', height: '28px', background: '#535E4A', borderRadius: '14px', border: 'none', cursor: 'pointer', position: 'relative' }}>
-                          <div style={{ width: '22px', height: '22px', background: '#F7F3E9', borderRadius: '50%', position: 'absolute', top: '3px', left: '23px' }} />
-                        </button>
+                        <Toggle value={profilePrivacySettings.profile_public} onChange={(val) => setProfilePrivacySettings(prev => ({ ...prev, profile_public: val }))} />
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <Eye size={18} color="rgba(247,243,233,0.5)" />
+                          <CheckCircle size={18} color="rgba(247,243,233,0.5)" />
                           <div>
-                            <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>Show Contact Info</p>
-                            <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Display your email on public profile</p>
+                            <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>Accepting Bookings</p>
+                            <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Show that you're available for booking requests</p>
                           </div>
                         </div>
-                        <button style={{ width: '48px', height: '28px', background: 'rgba(247,243,233,0.1)', borderRadius: '14px', border: 'none', cursor: 'pointer', position: 'relative' }}>
-                          <div style={{ width: '22px', height: '22px', background: '#F7F3E9', borderRadius: '50%', position: 'absolute', top: '3px', left: '3px' }} />
-                        </button>
+                        <Toggle value={profilePrivacySettings.accepting_bookings} onChange={(val) => setProfilePrivacySettings(prev => ({ ...prev, accepting_bookings: val }))} />
                       </div>
                     </div>
 
-                    <div>
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Information Display</h4>
+                      {[
+                        { key: 'show_email', label: 'Show Email', desc: 'Display your email on public profile', icon: Mail },
+                        { key: 'show_phone', label: 'Show Phone', desc: 'Display your phone number on public profile', icon: Phone },
+                        { key: 'show_location', label: 'Show Location', desc: 'Display your location on public profile', icon: MapPin },
+                        { key: 'show_bio', label: 'Show Bio', desc: 'Display your biography on public profile', icon: User },
+                        { key: 'show_experience', label: 'Show Experience', desc: 'Display years of experience on public profile', icon: Calendar },
+                        { key: 'show_social_media', label: 'Show Social Media', desc: 'Display social media links on public profile', icon: Share2 },
+                        { key: 'show_sermons', label: 'Show Sermons', desc: 'Display sermon videos on public profile', icon: Youtube },
+                      ].map((setting) => {
+                        const SettingIcon = setting.icon;
+                        return (
+                          <div key={setting.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <SettingIcon size={16} color="rgba(247,243,233,0.4)" />
+                              <div>
+                                <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '2px' }}>{setting.label}</p>
+                                <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>{setting.desc}</p>
+                              </div>
+                            </div>
+                            <Toggle value={profilePrivacySettings[setting.key]} onChange={(val) => setProfilePrivacySettings(prev => ({ ...prev, [setting.key]: val }))} disabled={!profilePrivacySettings.profile_public} />
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div style={{ marginBottom: '24px' }}>
                       <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Your Public Profile URL</h4>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <input type="text" value={`getpulpit.app/${currentUser?.name?.toLowerCase().replace(/\s+/g, '-') || 'your-name'}`} readOnly style={{ ...styles.input, flex: 1 }} />
@@ -2831,6 +3474,39 @@ export default function PulpitApp() {
                         </button>
                       </div>
                     </div>
+
+                    <button onClick={handleSavePrivacySettings} disabled={savingSettings} style={{ ...styles.button, opacity: savingSettings ? 0.6 : 1 }}>
+                      {savingSettings ? 'SAVING...' : 'SAVE PRIVACY SETTINGS'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Booking Form Customization */}
+                {settingsTab === 'booking_form' && (
+                  <div style={styles.card}>
+                    <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '8px', letterSpacing: '1px', color: '#F7F3E9' }}>BOOKING FORM CUSTOMIZATION</h3>
+                    <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px', marginBottom: '24px' }}>Control which fields appear on your booking request form and whether they're required</p>
+                    
+                    <div style={{ marginBottom: '24px' }}>
+                      {Object.entries(bookingFormConfig.fields).map(([key, field]) => (
+                        <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '2px' }}>{field.label}</p>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'rgba(247,243,233,0.5)', fontSize: '12px', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={field.required} onChange={(e) => setBookingFormConfig(prev => ({ ...prev, fields: { ...prev.fields, [key]: { ...prev.fields[key], required: e.target.checked } } }))} disabled={!field.enabled} />
+                              Required
+                            </label>
+                            <Toggle value={field.enabled} onChange={(val) => setBookingFormConfig(prev => ({ ...prev, fields: { ...prev.fields, [key]: { ...prev.fields[key], enabled: val } } }))} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button onClick={handleSaveBookingFormConfig} disabled={savingSettings} style={{ ...styles.button, opacity: savingSettings ? 0.6 : 1 }}>
+                      {savingSettings ? 'SAVING...' : 'SAVE FORM SETTINGS'}
+                    </button>
                   </div>
                 )}
 
@@ -2893,8 +3569,6 @@ export default function PulpitApp() {
                     </div>
                   </div>
                 )}
-              </div>
-            )}
           </>
         )}
       </div>
