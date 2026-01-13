@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft } from 'lucide-react';
+import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // TWO different API bases in Xano
 const AUTH_API = 'https://x8ki-letl-twmt.n7.xano.io/api:fwui2Env';
@@ -143,6 +143,9 @@ export default function PulpitApp() {
   // Selected request for detail view
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  
+  // Calendar state
+  const [calendarDate, setCalendarDate] = useState(new Date());
   
   // Form data
   const [loginEmail, setLoginEmail] = useState('');
@@ -1188,14 +1191,149 @@ export default function PulpitApp() {
               </div>
             )}
 
-            {activeTab === 'calendar' && (
-              <div style={styles.card}>
-                <div style={{ textAlign: 'center', padding: '64px' }}>
-                  <Calendar size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                  <p style={{ color: 'rgba(247,243,233,0.5)' }}>Calendar coming soon</p>
+            {activeTab === 'calendar' && (() => {
+              const year = calendarDate.getFullYear();
+              const month = calendarDate.getMonth();
+              const firstDay = new Date(year, month, 1).getDay();
+              const daysInMonth = new Date(year, month + 1, 0).getDate();
+              const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+              const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+              
+              // Get events for this month
+              const getEventsForDate = (day) => {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                return bookingRequests.filter(r => {
+                  if (!r.event_date) return false;
+                  return r.event_date.startsWith(dateStr);
+                });
+              };
+              
+              const days = [];
+              // Empty cells for days before first day of month
+              for (let i = 0; i < firstDay; i++) {
+                days.push(null);
+              }
+              // Days of the month
+              for (let i = 1; i <= daysInMonth; i++) {
+                days.push(i);
+              }
+              
+              const today = new Date();
+              const isToday = (day) => {
+                return day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+              };
+              
+              return (
+                <div>
+                  {/* Calendar Header */}
+                  <div style={{ ...styles.card, marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <button 
+                        onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
+                        style={{ ...styles.buttonSecondary, padding: '10px 16px' }}
+                      >
+                        <ChevronLeft size={18} />
+                      </button>
+                      <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '24px', letterSpacing: '2px', color: '#F7F3E9' }}>
+                        {monthNames[month]} {year}
+                      </h2>
+                      <button 
+                        onClick={() => setCalendarDate(new Date(year, month + 1, 1))}
+                        style={{ ...styles.buttonSecondary, padding: '10px 16px' }}
+                      >
+                        <ChevronRight size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Calendar Grid */}
+                  <div style={styles.card}>
+                    {/* Day Names Header */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '8px' }}>
+                      {dayNames.map((day) => (
+                        <div key={day} style={{ textAlign: 'center', padding: '12px 8px', fontSize: '12px', fontWeight: '600', color: 'rgba(247,243,233,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Calendar Days */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
+                      {days.map((day, index) => {
+                        if (day === null) {
+                          return <div key={`empty-${index}`} style={{ minHeight: '100px' }} />;
+                        }
+                        
+                        const events = getEventsForDate(day);
+                        const hasConfirmed = events.some(e => e.status === 'confirmed');
+                        const hasPending = events.some(e => e.status === 'pending');
+                        
+                        return (
+                          <div 
+                            key={day} 
+                            style={{ 
+                              minHeight: '100px', 
+                              padding: '8px',
+                              background: isToday(day) ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.02)',
+                              borderRadius: '8px',
+                              border: isToday(day) ? '1px solid rgba(83,94,74,0.5)' : '1px solid rgba(247,243,233,0.05)',
+                            }}
+                          >
+                            <div style={{ 
+                              fontSize: '14px', 
+                              fontWeight: isToday(day) ? '700' : '500',
+                              color: isToday(day) ? '#F7F3E9' : 'rgba(247,243,233,0.6)',
+                              marginBottom: '6px'
+                            }}>
+                              {day}
+                            </div>
+                            
+                            {events.slice(0, 2).map((event, i) => (
+                              <div 
+                                key={event.id || i}
+                                onClick={() => setSelectedRequest(event)}
+                                style={{ 
+                                  fontSize: '11px',
+                                  padding: '4px 6px',
+                                  marginBottom: '4px',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  background: event.status === 'confirmed' ? 'rgba(76,175,80,0.2)' : event.status === 'pending' ? 'rgba(255,180,0,0.2)' : 'rgba(247,243,233,0.1)',
+                                  color: event.status === 'confirmed' ? '#4CAF50' : event.status === 'pending' ? '#FFB400' : 'rgba(247,243,233,0.5)',
+                                }}
+                              >
+                                {event.event_name || event.church_name}
+                              </div>
+                            ))}
+                            
+                            {events.length > 2 && (
+                              <div style={{ fontSize: '10px', color: 'rgba(247,243,233,0.4)' }}>
+                                +{events.length - 2} more
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Legend */}
+                  <div style={{ display: 'flex', gap: '24px', marginTop: '16px', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(76,175,80,0.3)' }} />
+                      <span style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Confirmed</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(255,180,0,0.3)' }} />
+                      <span style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Pending</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {activeTab === 'documents' && (
               <div style={styles.card}>
