@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft, ChevronRight, Menu, Edit, Save } from 'lucide-react';
+import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft, ChevronRight, Menu, Edit, Save, Upload, Send, Plane, Car, Coffee, Bed, Trash2 } from 'lucide-react';
 
 // TWO different API bases in Xano
 const AUTH_API = 'https://x8ki-letl-twmt.n7.xano.io/api:fwui2Env';
@@ -157,6 +157,7 @@ export default function PulpitApp() {
   // Selected request for detail view
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [detailTab, setDetailTab] = useState('details');
   
   // Calendar state
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -172,8 +173,23 @@ export default function PulpitApp() {
     tagline: '',
     bio: '',
     location: '',
+    year_started: '',
   });
   const [savingProfile, setSavingProfile] = useState(false);
+  
+  // Messaging state
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [messageText, setMessageText] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  
+  // Document upload state
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [selectedRequestForDoc, setSelectedRequestForDoc] = useState(null);
+  
+  // Itinerary state
+  const [selectedRequestForItinerary, setSelectedRequestForItinerary] = useState(null);
+  const [itineraryItems, setItineraryItems] = useState([]);
+  const [newItineraryItem, setNewItineraryItem] = useState({ item_type: '', title: '', details: '', location: '', date_time: '' });
   
   // Form data
   const [loginEmail, setLoginEmail] = useState('');
@@ -274,6 +290,7 @@ export default function PulpitApp() {
         tagline: currentUser.tagline || '',
         bio: currentUser.bio || '',
         location: currentUser.location || '',
+        year_started: currentUser.year_started || '',
       });
     }
   }, [currentUser]);
@@ -292,6 +309,104 @@ export default function PulpitApp() {
       alert('Failed to save profile. Please try again.');
     }
     setSavingProfile(false);
+  };
+
+  // Messaging functions
+  const getConversationsForRequest = (requestId) => {
+    return messages.filter(m => m.booking_request_id === requestId);
+  };
+
+  const handleSendMessage = async (requestId, receiverId) => {
+    if (!messageText.trim()) return;
+    setSendingMessage(true);
+    try {
+      await apiCall(DATA_API, '/message', {
+        method: 'POST',
+        body: JSON.stringify({
+          sender_user_id: currentUser.id,
+          receiver_user_id: receiverId,
+          booking_request_id: requestId,
+          content: messageText,
+          read: false,
+        }),
+      });
+      setMessageText('');
+      // Reload messages
+      const messagesData = await apiCall(DATA_API, '/message').catch(() => []);
+      setMessages(Array.isArray(messagesData) ? messagesData : []);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+    setSendingMessage(false);
+  };
+
+  // Document functions
+  const handleDocumentUpload = async (requestId, docType, file) => {
+    setUploadingDoc(true);
+    try {
+      // For now, we'll store document metadata - actual file upload would need cloud storage
+      await apiCall(DATA_API, '/document', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: file.name || docType,
+          document_type: docType,
+          booking_request_id: requestId,
+          uploaded_by_user_id: currentUser.id,
+          status: 'uploaded',
+          file: file.name,
+        }),
+      });
+      // Reload documents
+      const documentsData = await apiCall(DATA_API, '/document').catch(() => []);
+      setDocuments(Array.isArray(documentsData) ? documentsData : []);
+    } catch (error) {
+      console.error('Failed to upload document:', error);
+    }
+    setUploadingDoc(false);
+  };
+
+  // Itinerary functions
+  const loadItineraryForRequest = async (requestId) => {
+    try {
+      const items = await apiCall(DATA_API, '/itinerary_item').catch(() => []);
+      const filtered = items.filter(i => i.booking_request_id === requestId);
+      setItineraryItems(filtered);
+    } catch (error) {
+      console.error('Failed to load itinerary:', error);
+      setItineraryItems([]);
+    }
+  };
+
+  const handleAddItineraryItem = async (requestId) => {
+    if (!newItineraryItem.title) return;
+    try {
+      await apiCall(DATA_API, '/itinerary_item', {
+        method: 'POST',
+        body: JSON.stringify({
+          booking_request_id: requestId,
+          item_type: newItineraryItem.item_type || 'other',
+          title: newItineraryItem.title,
+          details: newItineraryItem.details,
+          location: newItineraryItem.location,
+          date_time: newItineraryItem.date_time,
+          status: 'pending',
+          added_by_user_id: currentUser.id,
+        }),
+      });
+      setNewItineraryItem({ item_type: '', title: '', details: '', location: '', date_time: '' });
+      loadItineraryForRequest(requestId);
+    } catch (error) {
+      console.error('Failed to add itinerary item:', error);
+    }
+  };
+
+  const handleDeleteItineraryItem = async (itemId, requestId) => {
+    try {
+      await apiCall(DATA_API, `/itinerary_item/${itemId}`, { method: 'DELETE' });
+      loadItineraryForRequest(requestId);
+    } catch (error) {
+      console.error('Failed to delete itinerary item:', error);
+    }
   };
 
   const handleLogin = async (e) => {
@@ -512,18 +627,20 @@ export default function PulpitApp() {
     const contact = notes.contact || {};
     const churchAddress = notes.churchAddress || {};
     const eventAddress = notes.eventAddress || {};
+    const requestMessages = messages.filter(m => m.booking_request_id === selectedRequest.id);
+    const requestDocs = documents.filter(d => d.booking_request_id === selectedRequest.id);
     
     return (
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, overflow: 'auto' }}>
-        <div style={{ maxWidth: '800px', margin: '40px auto', padding: '0 20px' }}>
+        <div style={{ maxWidth: '900px', margin: '40px auto', padding: '0 20px' }}>
           <div style={{ ...styles.card, background: '#0A0A0A' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '24px' }}>
               <div>
-                <button onClick={() => setSelectedRequest(null)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <button onClick={() => { setSelectedRequest(null); setDetailTab('details'); }} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                   <ChevronLeft size={18} /> Back to Requests
                 </button>
-                <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '28px', letterSpacing: '2px', color: '#F7F3E9', marginBottom: '8px' }}>
+                <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '22px' : '28px', letterSpacing: '2px', color: '#F7F3E9', marginBottom: '8px' }}>
                   {selectedRequest.event_name}
                 </h1>
                 <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '14px' }}>
@@ -535,177 +652,344 @@ export default function PulpitApp() {
               </span>
             </div>
 
-            {/* Action Buttons */}
-            {selectedRequest.status === 'pending' && (
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', padding: '20px', background: 'rgba(247,243,233,0.03)', borderRadius: '12px' }}>
-                <button 
-                  onClick={() => handleStatusUpdate(selectedRequest.id, 'confirmed')} 
-                  disabled={updatingStatus}
-                  style={{ ...styles.buttonSuccess, display: 'flex', alignItems: 'center', gap: '8px', opacity: updatingStatus ? 0.6 : 1 }}
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '16px', overflowX: 'auto' }}>
+              {[
+                { id: 'details', label: 'Details', icon: FileText },
+                { id: 'messages', label: 'Messages', icon: MessageSquare, count: requestMessages.length },
+                { id: 'documents', label: 'Documents', icon: FolderOpen, count: requestDocs.length },
+                { id: 'itinerary', label: 'Itinerary', icon: Plane },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setDetailTab(tab.id); if (tab.id === 'itinerary') loadItineraryForRequest(selectedRequest.id); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 16px',
+                    background: detailTab === tab.id ? 'rgba(83,94,74,0.3)' : 'transparent',
+                    border: detailTab === tab.id ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent',
+                    borderRadius: '8px',
+                    color: detailTab === tab.id ? '#F7F3E9' : 'rgba(247,243,233,0.5)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    whiteSpace: 'nowrap',
+                  }}
                 >
-                  <Check size={16} /> ACCEPT REQUEST
+                  <tab.icon size={16} />
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span style={{ background: 'rgba(83,94,74,0.5)', padding: '2px 6px', borderRadius: '10px', fontSize: '11px' }}>{tab.count}</span>
+                  )}
                 </button>
-                <button 
-                  onClick={() => handleStatusUpdate(selectedRequest.id, 'declined')} 
-                  disabled={updatingStatus}
-                  style={{ ...styles.buttonDanger, display: 'flex', alignItems: 'center', gap: '8px', opacity: updatingStatus ? 0.6 : 1 }}
-                >
-                  <X size={16} /> DECLINE
-                </button>
+              ))}
+            </div>
+
+            {/* Details Tab */}
+            {detailTab === 'details' && (
+              <>
+                {/* Action Buttons */}
+                {selectedRequest.status === 'pending' && (
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', padding: '20px', background: 'rgba(247,243,233,0.03)', borderRadius: '12px', flexWrap: 'wrap' }}>
+                    <button onClick={() => handleStatusUpdate(selectedRequest.id, 'confirmed')} disabled={updatingStatus} style={{ ...styles.buttonSuccess, display: 'flex', alignItems: 'center', gap: '8px', opacity: updatingStatus ? 0.6 : 1 }}>
+                      <Check size={16} /> ACCEPT REQUEST
+                    </button>
+                    <button onClick={() => handleStatusUpdate(selectedRequest.id, 'declined')} disabled={updatingStatus} style={{ ...styles.buttonDanger, display: 'flex', alignItems: 'center', gap: '8px', opacity: updatingStatus ? 0.6 : 1 }}>
+                      <X size={16} /> DECLINE
+                    </button>
+                  </div>
+                )}
+
+                {selectedRequest.status === 'confirmed' && (
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', padding: '20px', background: 'rgba(76,175,80,0.1)', borderRadius: '12px', border: '1px solid rgba(76,175,80,0.2)', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <CheckCircle size={20} color="#4CAF50" />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ color: '#4CAF50', fontWeight: '600', marginBottom: '4px' }}>Request Confirmed</p>
+                      <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>You've accepted this speaking engagement</p>
+                    </div>
+                    <button onClick={() => handleStatusUpdate(selectedRequest.id, 'completed')} disabled={updatingStatus} style={styles.buttonSecondary}>Mark Complete</button>
+                  </div>
+                )}
+
+                {/* Contact Information */}
+                <div style={{ marginBottom: '32px' }}>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>CONTACT INFORMATION</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <User size={18} color="rgba(247,243,233,0.5)" />
+                      <div>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Name</p>
+                        <p style={{ color: '#F7F3E9' }}>{contact.firstName} {contact.lastName}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <Mail size={18} color="rgba(247,243,233,0.5)" />
+                      <div>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Email</p>
+                        <p style={{ color: '#F7F3E9' }}>{contact.email || 'Not provided'}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <Phone size={18} color="rgba(247,243,233,0.5)" />
+                      <div>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Phone</p>
+                        <p style={{ color: '#F7F3E9' }}>{contact.phone || 'Not provided'}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <Building size={18} color="rgba(247,243,233,0.5)" />
+                      <div>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Organization</p>
+                        <p style={{ color: '#F7F3E9' }}>{selectedRequest.church_name}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Event Details */}
+                <div style={{ marginBottom: '32px' }}>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>EVENT DETAILS</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <Calendar size={18} color="rgba(247,243,233,0.5)" />
+                      <div>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Event Date</p>
+                        <p style={{ color: '#F7F3E9' }}>{selectedRequest.event_date}{notes.eventEndDate ? ` - ${notes.eventEndDate}` : ''}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <MapPin size={18} color="rgba(247,243,233,0.5)" />
+                      <div>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Location</p>
+                        <p style={{ color: '#F7F3E9' }}>{eventAddress.address ? `${eventAddress.address}, ` : ''}{selectedRequest.location}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <UsersIcon size={18} color="rgba(247,243,233,0.5)" />
+                      <div>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Expected Attendance</p>
+                        <p style={{ color: '#F7F3E9' }}>{selectedRequest.attendance || 'Not specified'}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <DollarSign size={18} color="rgba(247,243,233,0.5)" />
+                      <div>
+                        <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Honorarium</p>
+                        <p style={{ color: '#F7F3E9' }}>${selectedRequest.honorarium || '0'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logistics */}
+                <div style={{ marginBottom: '32px' }}>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>LOGISTICS</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '16px' }}>
+                    <div style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)', marginBottom: '4px' }}>Attire</p>
+                      <p style={{ color: '#F7F3E9', textTransform: 'capitalize' }}>{selectedRequest.attire || 'Not specified'}</p>
+                    </div>
+                    <div style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)', marginBottom: '4px' }}>Merch Allowed</p>
+                      <p style={{ color: '#F7F3E9' }}>{selectedRequest.merch_allowed ? 'Yes' : 'No'}</p>
+                    </div>
+                    <div style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                      <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)', marginBottom: '4px' }}>Sunday Required</p>
+                      <p style={{ color: '#F7F3E9', textTransform: 'capitalize' }}>{notes.sundayRequired || 'Not specified'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expenses */}
+                {notes.expensesCovered && notes.expensesCovered.length > 0 && (
+                  <div style={{ marginBottom: '32px' }}>
+                    <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>EXPENSES COVERED</h3>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {notes.expensesCovered.map((e, i) => (
+                        <span key={i} style={{ padding: '8px 16px', background: 'rgba(76,175,80,0.15)', borderRadius: '20px', fontSize: '13px', color: '#4CAF50' }}>✓ {e}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Comments */}
+                {notes.additionalComments && (
+                  <div style={{ marginBottom: '32px' }}>
+                    <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>ADDITIONAL COMMENTS</h3>
+                    <p style={{ color: 'rgba(247,243,233,0.7)', lineHeight: '1.6', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>{notes.additionalComments}</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Messages Tab */}
+            {detailTab === 'messages' && (
+              <div>
+                <div style={{ background: 'rgba(247,243,233,0.03)', borderRadius: '12px', padding: '16px', marginBottom: '16px', maxHeight: '400px', overflowY: 'auto' }}>
+                  {requestMessages.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '48px' }}>
+                      <MessageSquare size={32} color="rgba(247,243,233,0.2)" style={{ marginBottom: '12px' }} />
+                      <p style={{ color: 'rgba(247,243,233,0.5)' }}>No messages yet</p>
+                      <p style={{ color: 'rgba(247,243,233,0.3)', fontSize: '13px', marginTop: '8px' }}>Start a conversation with the event host</p>
+                    </div>
+                  ) : (
+                    requestMessages.map((msg, i) => (
+                      <div key={msg.id || i} style={{ marginBottom: '16px', display: 'flex', flexDirection: msg.sender_user_id === currentUser?.id ? 'row-reverse' : 'row', gap: '12px' }}>
+                        <div style={{ width: '36px', height: '36px', background: msg.sender_user_id === currentUser?.id ? '#535E4A' : 'rgba(247,243,233,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#F7F3E9', flexShrink: 0 }}>
+                          {msg.sender_user_id === currentUser?.id ? 'Y' : 'H'}
+                        </div>
+                        <div style={{ maxWidth: '70%', padding: '12px 16px', background: msg.sender_user_id === currentUser?.id ? 'rgba(83,94,74,0.3)' : 'rgba(247,243,233,0.08)', borderRadius: '12px' }}>
+                          <p style={{ color: '#F7F3E9', fontSize: '14px', lineHeight: '1.5' }}>{msg.content}</p>
+                          <p style={{ color: 'rgba(247,243,233,0.3)', fontSize: '11px', marginTop: '6px' }}>{new Date(msg.created_at).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                
+                {/* Message Input */}
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <input
+                    type="text"
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    placeholder="Type a message..."
+                    style={{ ...styles.input, flex: 1 }}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage(selectedRequest.id, selectedRequest.host_user_id || 1)}
+                  />
+                  <button
+                    onClick={() => handleSendMessage(selectedRequest.id, selectedRequest.host_user_id || 1)}
+                    disabled={sendingMessage || !messageText.trim()}
+                    style={{ ...styles.button, padding: '14px 20px', opacity: sendingMessage || !messageText.trim() ? 0.5 : 1 }}
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
               </div>
             )}
 
-            {selectedRequest.status === 'confirmed' && (
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', padding: '20px', background: 'rgba(76,175,80,0.1)', borderRadius: '12px', border: '1px solid rgba(76,175,80,0.2)' }}>
-                <CheckCircle size={20} color="#4CAF50" />
-                <div>
-                  <p style={{ color: '#4CAF50', fontWeight: '600', marginBottom: '4px' }}>Request Confirmed</p>
-                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>You've accepted this speaking engagement</p>
+            {/* Documents Tab */}
+            {detailTab === 'documents' && (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                  {['Contract', 'W9', 'Rider', 'Other'].map((docType) => {
+                    const existingDoc = requestDocs.find(d => d.document_type === docType.toLowerCase());
+                    return (
+                      <div key={docType} style={{ padding: '20px', background: 'rgba(247,243,233,0.03)', borderRadius: '12px', border: existingDoc ? '1px solid rgba(76,175,80,0.3)' : '1px solid rgba(247,243,233,0.08)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                          <h4 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '14px', letterSpacing: '1px', color: '#F7F3E9' }}>{docType}</h4>
+                          {existingDoc && <CheckCircle size={16} color="#4CAF50" />}
+                        </div>
+                        {existingDoc ? (
+                          <div>
+                            <p style={{ color: 'rgba(247,243,233,0.7)', fontSize: '13px', marginBottom: '8px' }}>{existingDoc.name}</p>
+                            <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '11px' }}>Uploaded {new Date(existingDoc.created_at).toLocaleDateString()}</p>
+                          </div>
+                        ) : (
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'rgba(247,243,233,0.05)', borderRadius: '8px', cursor: 'pointer', color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>
+                            <Upload size={16} />
+                            Upload {docType}
+                            <input
+                              type="file"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                if (e.target.files[0]) {
+                                  handleDocumentUpload(selectedRequest.id, docType.toLowerCase(), e.target.files[0]);
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <button 
-                  onClick={() => handleStatusUpdate(selectedRequest.id, 'completed')} 
-                  disabled={updatingStatus}
-                  style={{ ...styles.buttonSecondary, marginLeft: 'auto' }}
-                >
-                  Mark Complete
-                </button>
-              </div>
-            )}
 
-            {/* Contact Information */}
-            <div style={{ marginBottom: '32px' }}>
-              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>CONTACT INFORMATION</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <User size={18} color="rgba(247,243,233,0.5)" />
+                {requestDocs.length > 0 && (
                   <div>
-                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Name</p>
-                    <p style={{ color: '#F7F3E9' }}>{contact.firstName} {contact.lastName}</p>
+                    <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>ALL DOCUMENTS</h3>
+                    {requestDocs.map((doc, i) => (
+                      <div key={doc.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(247,243,233,0.03)', borderRadius: '8px', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <FileText size={18} color="rgba(247,243,233,0.5)" />
+                          <div>
+                            <p style={{ color: '#F7F3E9', fontSize: '14px' }}>{doc.name}</p>
+                            <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '11px', textTransform: 'capitalize' }}>{doc.document_type}</p>
+                          </div>
+                        </div>
+                        <span style={{ ...styles.badge, background: doc.status === 'signed' ? 'rgba(76,175,80,0.15)' : 'rgba(255,180,0,0.15)', color: doc.status === 'signed' ? '#4CAF50' : '#FFB400' }}>
+                          {doc.status}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <Mail size={18} color="rgba(247,243,233,0.5)" />
-                  <div>
-                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Email</p>
-                    <p style={{ color: '#F7F3E9' }}>{contact.email || 'Not provided'}</p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <Phone size={18} color="rgba(247,243,233,0.5)" />
-                  <div>
-                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Phone</p>
-                    <p style={{ color: '#F7F3E9' }}>{contact.phone || 'Not provided'}</p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <Building size={18} color="rgba(247,243,233,0.5)" />
-                  <div>
-                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Organization</p>
-                    <p style={{ color: '#F7F3E9' }}>{selectedRequest.church_name}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Event Details */}
-            <div style={{ marginBottom: '32px' }}>
-              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>EVENT DETAILS</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <Calendar size={18} color="rgba(247,243,233,0.5)" />
-                  <div>
-                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Event Date</p>
-                    <p style={{ color: '#F7F3E9' }}>{selectedRequest.event_date}{notes.eventEndDate ? ` - ${notes.eventEndDate}` : ''}</p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <MapPin size={18} color="rgba(247,243,233,0.5)" />
-                  <div>
-                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Location</p>
-                    <p style={{ color: '#F7F3E9' }}>{eventAddress.address ? `${eventAddress.address}, ` : ''}{selectedRequest.location}</p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <UsersIcon size={18} color="rgba(247,243,233,0.5)" />
-                  <div>
-                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Expected Attendance</p>
-                    <p style={{ color: '#F7F3E9' }}>{selectedRequest.attendance || 'Not specified'}</p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <DollarSign size={18} color="rgba(247,243,233,0.5)" />
-                  <div>
-                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Honorarium</p>
-                    <p style={{ color: '#F7F3E9' }}>${selectedRequest.honorarium || '0'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Audience */}
-            {notes.audience && notes.audience.length > 0 && (
-              <div style={{ marginBottom: '32px' }}>
-                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>AUDIENCE</h3>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {notes.audience.map((a, i) => (
-                    <span key={i} style={{ padding: '8px 16px', background: 'rgba(83,94,74,0.2)', borderRadius: '20px', fontSize: '13px', color: '#F7F3E9' }}>{a}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Logistics */}
-            <div style={{ marginBottom: '32px' }}>
-              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>LOGISTICS</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-                <div style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)', marginBottom: '4px' }}>Attire</p>
-                  <p style={{ color: '#F7F3E9', textTransform: 'capitalize' }}>{selectedRequest.attire || 'Not specified'}</p>
-                </div>
-                <div style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)', marginBottom: '4px' }}>Merch Allowed</p>
-                  <p style={{ color: '#F7F3E9' }}>{selectedRequest.merch_allowed ? 'Yes' : 'No'}</p>
-                </div>
-                <div style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
-                  <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)', marginBottom: '4px' }}>Sunday Required</p>
-                  <p style={{ color: '#F7F3E9', textTransform: 'capitalize' }}>{notes.sundayRequired || 'Not specified'}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Expenses */}
-            {notes.expensesCovered && notes.expensesCovered.length > 0 && (
-              <div style={{ marginBottom: '32px' }}>
-                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>EXPENSES COVERED</h3>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {notes.expensesCovered.map((e, i) => (
-                    <span key={i} style={{ padding: '8px 16px', background: 'rgba(76,175,80,0.15)', borderRadius: '20px', fontSize: '13px', color: '#4CAF50' }}>✓ {e}</span>
-                  ))}
-                </div>
-                {notes.expensesEmail && (
-                  <p style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>Send expenses to: {notes.expensesEmail}</p>
                 )}
               </div>
             )}
 
-            {/* Previous Events */}
-            {notes.previousEvents && (
-              <div style={{ marginBottom: '32px' }}>
-                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>PREVIOUS EVENTS WITH YOU</h3>
-                <p style={{ color: 'rgba(247,243,233,0.7)', lineHeight: '1.6', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>{notes.previousEvents}</p>
-              </div>
-            )}
+            {/* Itinerary Tab */}
+            {detailTab === 'itinerary' && (
+              <div>
+                {/* Add Itinerary Item */}
+                <div style={{ background: 'rgba(247,243,233,0.03)', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '14px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>ADD ITINERARY ITEM</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <select value={newItineraryItem.item_type} onChange={(e) => setNewItineraryItem(prev => ({ ...prev, item_type: e.target.value }))} style={styles.input}>
+                      <option value="">Type</option>
+                      <option value="flight">Flight</option>
+                      <option value="hotel">Hotel</option>
+                      <option value="transport">Ground Transport</option>
+                      <option value="meal">Meal</option>
+                      <option value="session">Session</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <input type="text" placeholder="Title" value={newItineraryItem.title} onChange={(e) => setNewItineraryItem(prev => ({ ...prev, title: e.target.value }))} style={styles.input} />
+                    <input type="datetime-local" value={newItineraryItem.date_time} onChange={(e) => setNewItineraryItem(prev => ({ ...prev, date_time: e.target.value }))} style={styles.input} />
+                    <input type="text" placeholder="Location" value={newItineraryItem.location} onChange={(e) => setNewItineraryItem(prev => ({ ...prev, location: e.target.value }))} style={styles.input} />
+                  </div>
+                  <input type="text" placeholder="Details (optional)" value={newItineraryItem.details} onChange={(e) => setNewItineraryItem(prev => ({ ...prev, details: e.target.value }))} style={{ ...styles.input, marginBottom: '12px' }} />
+                  <button onClick={() => handleAddItineraryItem(selectedRequest.id)} disabled={!newItineraryItem.title} style={{ ...styles.button, opacity: newItineraryItem.title ? 1 : 0.5 }}>
+                    <Plus size={16} style={{ marginRight: '8px' }} /> ADD ITEM
+                  </button>
+                </div>
 
-            {/* Additional Comments */}
-            {notes.additionalComments && (
-              <div style={{ marginBottom: '32px' }}>
-                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>ADDITIONAL COMMENTS</h3>
-                <p style={{ color: 'rgba(247,243,233,0.7)', lineHeight: '1.6', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>{notes.additionalComments}</p>
+                {/* Itinerary List */}
+                {itineraryItems.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '48px', background: 'rgba(247,243,233,0.03)', borderRadius: '12px' }}>
+                    <Plane size={32} color="rgba(247,243,233,0.2)" style={{ marginBottom: '12px' }} />
+                    <p style={{ color: 'rgba(247,243,233,0.5)' }}>No itinerary items yet</p>
+                    <p style={{ color: 'rgba(247,243,233,0.3)', fontSize: '13px', marginTop: '8px' }}>Add flights, hotels, sessions, and more</p>
+                  </div>
+                ) : (
+                  <div>
+                    {itineraryItems.sort((a, b) => new Date(a.date_time) - new Date(b.date_time)).map((item, i) => {
+                      const itemIcons = { flight: Plane, hotel: Bed, transport: Car, meal: Coffee, session: Calendar, other: Clock };
+                      const ItemIcon = itemIcons[item.item_type] || Clock;
+                      return (
+                        <div key={item.id || i} style={{ display: 'flex', gap: '16px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', alignItems: 'flex-start' }}>
+                          <div style={{ width: '40px', height: '40px', background: 'rgba(83,94,74,0.2)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <ItemIcon size={18} color="#535E4A" />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ color: '#F7F3E9', fontWeight: '500', marginBottom: '4px' }}>{item.title}</p>
+                            {item.date_time && <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px', marginBottom: '4px' }}>{new Date(item.date_time).toLocaleString()}</p>}
+                            {item.location && <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {item.location}</p>}
+                            {item.details && <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '13px', marginTop: '8px' }}>{item.details}</p>}
+                          </div>
+                          <button onClick={() => handleDeleteItineraryItem(item.id, selectedRequest.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(247,243,233,0.3)', padding: '4px' }}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Close Button */}
-            <button onClick={() => setSelectedRequest(null)} style={{ ...styles.buttonSecondary, width: '100%' }}>
+            <button onClick={() => { setSelectedRequest(null); setDetailTab('details'); }} style={{ ...styles.buttonSecondary, width: '100%', marginTop: '24px' }}>
               Close
             </button>
           </div>
@@ -717,85 +1001,87 @@ export default function PulpitApp() {
   // PUBLIC SPEAKER PROFILE PAGE
   if (currentView === 'publicProfile') {
     const confirmedEvents = bookingRequests.filter(r => r.status === 'confirmed' || r.status === 'completed');
+    const yearsPreaching = currentUser?.year_started ? new Date().getFullYear() - parseInt(currentUser.year_started) : null;
+    const displayLocation = currentUser?.location?.split(',')[0] || 'US';
     
     return (
       <div style={{ minHeight: '100vh', background: '#0A0A0A' }}>
         {/* Header */}
-        <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 48px', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '28px', letterSpacing: '2px', color: '#F7F3E9' }}>PULPIT</div>
-          <button onClick={() => setCurrentView('booking')} style={styles.button}>
+        <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '16px 20px' : '24px 48px', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '24px' : '28px', letterSpacing: '2px', color: '#F7F3E9' }}>PULPIT</div>
+          <button onClick={() => setCurrentView('booking')} style={{ ...styles.button, padding: isMobile ? '10px 20px' : '14px 28px', fontSize: isMobile ? '12px' : '13px' }}>
             BOOK NOW
           </button>
         </nav>
 
         {/* Hero Section */}
-        <section style={{ padding: '80px 48px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
+        <section style={{ padding: isMobile ? '48px 20px' : '80px 48px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
           {/* Profile Photo */}
           <div style={{ 
-            width: '180px', 
-            height: '180px', 
+            width: isMobile ? '140px' : '180px', 
+            height: isMobile ? '140px' : '180px', 
             background: 'linear-gradient(135deg, #535E4A, #3d4638)', 
             borderRadius: '50%', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center', 
             margin: '0 auto 32px',
-            fontSize: '64px',
+            fontSize: isMobile ? '48px' : '64px',
             fontWeight: '600',
             color: '#F7F3E9',
             border: '4px solid rgba(247,243,233,0.1)'
           }}>
-            S
+            {currentUser?.name?.charAt(0) || 'S'}
           </div>
           
-          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '56px', letterSpacing: '3px', marginBottom: '16px', color: '#F7F3E9' }}>
-            SHAQ HARDY
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '36px' : '56px', letterSpacing: isMobile ? '2px' : '3px', marginBottom: '16px', color: '#F7F3E9' }}>
+            {currentUser?.name?.toUpperCase() || 'SPEAKER NAME'}
           </h1>
           
-          <p style={{ fontSize: '18px', color: '#535E4A', marginBottom: '24px', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
-            SPEAKER • BIBLE TEACHER • YOUTH PASTOR
+          <p style={{ fontSize: isMobile ? '14px' : '18px', color: '#535E4A', marginBottom: '24px', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
+            {currentUser?.tagline?.toUpperCase() || 'SPEAKER • BIBLE TEACHER'}
           </p>
           
-          <p style={{ fontSize: '16px', color: 'rgba(247,243,233,0.7)', marginBottom: '48px', lineHeight: '1.8', maxWidth: '700px', margin: '0 auto 48px' }}>
-            Preaching the Word. Teaching the truth. Cultivating faithfulness. With a passion for foster care advocacy and youth discipleship, Shaq brings biblical teaching that transforms hearts and minds.
+          <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'rgba(247,243,233,0.7)', marginBottom: '48px', lineHeight: '1.8', maxWidth: '700px', margin: '0 auto 48px' }}>
+            {currentUser?.bio || 'Preaching the Word. Teaching the truth. Cultivating faithfulness.'}
           </p>
 
-          <button onClick={() => setCurrentView('booking')} style={{ ...styles.button, padding: '18px 48px', fontSize: '15px' }}>
+          <button onClick={() => setCurrentView('booking')} style={{ ...styles.button, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '13px' : '15px' }}>
             SUBMIT A SPEAKING REQUEST
           </button>
         </section>
 
         {/* Stats Section */}
-        <section style={{ padding: '60px 48px', background: 'rgba(247,243,233,0.02)' }}>
-          <div style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px', textAlign: 'center' }}>
+        <section style={{ padding: isMobile ? '40px 20px' : '60px 48px', background: 'rgba(247,243,233,0.02)' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: isMobile ? '16px' : '32px', textAlign: 'center' }}>
             <div>
-              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '48px', color: '#535E4A', marginBottom: '8px' }}>
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', color: '#535E4A', marginBottom: '8px' }}>
                 {confirmedEvents.length}+
               </p>
-              <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Events Completed</p>
+              <p style={{ fontSize: isMobile ? '11px' : '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Events</p>
             </div>
             <div>
-              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '48px', color: '#535E4A', marginBottom: '8px' }}>
-                10+
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', color: '#535E4A', marginBottom: '8px' }}>
+                {yearsPreaching ? `${yearsPreaching}+` : '—'}
               </p>
-              <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Years Speaking</p>
+              <p style={{ fontSize: isMobile ? '11px' : '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Years</p>
             </div>
             <div>
-              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '48px', color: '#535E4A', marginBottom: '8px' }}>
-                TN
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', color: '#535E4A', marginBottom: '8px' }}>
+                {displayLocation}
               </p>
-              <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Based In</p>
+              <p style={{ fontSize: isMobile ? '11px' : '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Based In</p>
             </div>
           </div>
         </section>
 
         {/* Speaking Topics */}
-        <section style={{ padding: '80px 48px' }}>
+        <section style={{ padding: isMobile ? '48px 20px' : '80px 48px' }}>
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '32px', letterSpacing: '2px', textAlign: 'center', marginBottom: '48px', color: '#F7F3E9' }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '24px' : '32px', letterSpacing: '2px', textAlign: 'center', marginBottom: isMobile ? '32px' : '48px', color: '#F7F3E9' }}>
               SPEAKING TOPICS
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(250px, 1fr))', gap: isMobile ? '16px' : '24px' }}>
               {[
                 { title: 'Identity in Christ', desc: 'Understanding who you are in Jesus and living from that foundation' },
                 { title: 'Anxiety & Peace', desc: 'Finding rest and trust in God amid life\'s storms' },
@@ -804,7 +1090,7 @@ export default function PulpitApp() {
                 { title: 'Youth Discipleship', desc: 'Equipping the next generation to follow Jesus faithfully' },
                 { title: 'Biblical Manhood', desc: 'What it means to be a man after God\'s own heart' },
               ].map((topic, i) => (
-                <div key={i} style={styles.card}>
+                <div key={i} style={{ ...styles.card, padding: isMobile ? '20px' : '24px' }}>
                   <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', marginBottom: '8px', color: '#F7F3E9' }}>
                     {topic.title}
                   </h3>
@@ -818,9 +1104,9 @@ export default function PulpitApp() {
         </section>
 
         {/* Event Types */}
-        <section style={{ padding: '80px 48px', background: 'rgba(247,243,233,0.02)' }}>
+        <section style={{ padding: isMobile ? '48px 20px' : '80px 48px', background: 'rgba(247,243,233,0.02)' }}>
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '32px', letterSpacing: '2px', textAlign: 'center', marginBottom: '48px', color: '#F7F3E9' }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '24px' : '32px', letterSpacing: '2px', textAlign: 'center', marginBottom: isMobile ? '32px' : '48px', color: '#F7F3E9' }}>
               EVENT TYPES
             </h2>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
@@ -836,11 +1122,11 @@ export default function PulpitApp() {
                 'Workshops',
               ].map((type, i) => (
                 <span key={i} style={{ 
-                  padding: '12px 24px', 
+                  padding: isMobile ? '10px 18px' : '12px 24px', 
                   background: 'rgba(83,94,74,0.15)', 
                   border: '1px solid rgba(83,94,74,0.3)',
                   borderRadius: '30px', 
-                  fontSize: '14px', 
+                  fontSize: isMobile ? '12px' : '14px', 
                   color: '#F7F3E9' 
                 }}>
                   {type}
@@ -851,24 +1137,24 @@ export default function PulpitApp() {
         </section>
 
         {/* CTA Section */}
-        <section style={{ padding: '100px 48px', textAlign: 'center' }}>
+        <section style={{ padding: isMobile ? '60px 20px' : '100px 48px', textAlign: 'center' }}>
           <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '40px', letterSpacing: '2px', marginBottom: '16px', color: '#F7F3E9' }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '28px' : '40px', letterSpacing: '2px', marginBottom: '16px', color: '#F7F3E9' }}>
               READY TO BOOK?
             </h2>
-            <p style={{ fontSize: '16px', color: 'rgba(247,243,233,0.6)', marginBottom: '32px', lineHeight: '1.7' }}>
+            <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'rgba(247,243,233,0.6)', marginBottom: '32px', lineHeight: '1.7' }}>
               Submit a speaking request and let's discuss how I can serve your church or organization.
             </p>
-            <button onClick={() => setCurrentView('booking')} style={{ ...styles.button, padding: '18px 48px', fontSize: '15px' }}>
+            <button onClick={() => setCurrentView('booking')} style={{ ...styles.button, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '13px' : '15px' }}>
               SUBMIT A REQUEST
             </button>
           </div>
         </section>
 
         {/* Footer */}
-        <footer style={{ padding: '32px 48px', borderTop: '1px solid rgba(247,243,233,0.08)', textAlign: 'center' }}>
+        <footer style={{ padding: isMobile ? '24px 20px' : '32px 48px', borderTop: '1px solid rgba(247,243,233,0.08)', textAlign: 'center' }}>
           <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.4)' }}>
-            © {new Date().getFullYear()} Shaq Hardy • Powered by Pulpit
+            © {new Date().getFullYear()} {currentUser?.name || 'Speaker'} • Powered by Pulpit
           </p>
         </footer>
       </div>
@@ -1508,6 +1794,17 @@ export default function PulpitApp() {
                         <textarea value={profileForm.bio} onChange={(e) => setProfileForm(prev => ({ ...prev, bio: e.target.value }))} style={{ ...styles.input, minHeight: '120px', resize: 'vertical' }} placeholder="Tell event hosts about yourself..." />
                       ) : (
                         <p style={{ color: currentUser?.bio ? '#F7F3E9' : 'rgba(247,243,233,0.4)', fontSize: '14px', lineHeight: '1.6' }}>{currentUser?.bio || 'Not set'}</p>
+                      )}
+                    </div>
+
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={styles.label}>Year Started Preaching</label>
+                      {editingProfile ? (
+                        <input type="number" value={profileForm.year_started} onChange={(e) => setProfileForm(prev => ({ ...prev, year_started: e.target.value }))} style={styles.input} placeholder="e.g., 2015" min="1950" max={new Date().getFullYear()} />
+                      ) : (
+                        <p style={{ color: currentUser?.year_started ? '#F7F3E9' : 'rgba(247,243,233,0.4)', fontSize: '16px' }}>
+                          {currentUser?.year_started ? `${currentUser.year_started} (${new Date().getFullYear() - currentUser.year_started}+ years)` : 'Not set'}
+                        </p>
                       )}
                     </div>
                   </div>
