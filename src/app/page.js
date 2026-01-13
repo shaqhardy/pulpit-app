@@ -1,8 +1,40 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, MessageSquare, User, FileText, Image, Settings, Search, Bell, Plus, ChevronRight, Check, X, Clock, MapPin, Users, DollarSign, Mic, Music, CalendarDays, Send, Star, Shield, Eye, UserPlus, Link, Copy, ExternalLink, Home, Briefcase, Mail, Phone, Globe, Edit, Trash2, Download, Share2, Filter, CheckCircle, AlertCircle, LogOut, FolderOpen, PenTool, Upload, File, RefreshCw, Plane, Hotel, Car, Coffee, ClipboardList, Video, Camera, Paperclip } from 'lucide-react';
-import api from '../lib/api';
+import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, Edit, Trash2, Download, LogOut, FolderOpen, Users, File, UserPlus } from 'lucide-react';
+
+// TWO different API bases in Xano
+const AUTH_API = 'https://x8ki-letl-twmt.n7.xano.io/api:fwui2Env';
+const DATA_API = 'https://x8ki-letl-twmt.n7.xano.io/api:EoXk01e5';
+
+const getToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('authToken');
+  }
+  return null;
+};
+
+const apiCall = async (baseUrl, endpoint, options = {}) => {
+  const token = getToken();
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  };
+
+  const response = await fetch(`${baseUrl}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    throw new Error(error.message || 'Request failed');
+  }
+
+  return response.json();
+};
 
 // Styles
 const styles = {
@@ -66,19 +98,16 @@ const styles = {
 };
 
 export default function PulpitApp() {
-  // Auth state
+  const [currentView, setCurrentView] = useState('landing');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+  const [authMode, setAuthMode] = useState('login');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
-  
-  // App state
-  const [currentView, setCurrentView] = useState('landing');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   
-  // Data state
+  // Data
   const [bookingRequests, setBookingRequests] = useState([]);
   const [messages, setMessages] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -86,16 +115,14 @@ export default function PulpitApp() {
   const [resources, setResources] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   
-  // Form state
-  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-  const [signupForm, setSignupForm] = useState({ 
-    name: '', 
-    email: '', 
-    password: '', 
-    user_type: 'speaker' 
-  });
+  // Form data - separate state for each field
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [signupName, setSignupName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupUserType, setSignupUserType] = useState('speaker');
 
-  // Check for existing auth on mount
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     if (token) {
@@ -105,7 +132,7 @@ export default function PulpitApp() {
 
   const loadUserData = async () => {
     try {
-      const user = await api.auth.me();
+      const user = await apiCall(AUTH_API, '/auth/me');
       setCurrentUser(user);
       setIsAuthenticated(true);
       setCurrentView('app');
@@ -119,20 +146,20 @@ export default function PulpitApp() {
     setLoading(true);
     try {
       const [requestsData, messagesData, notificationsData, documentsData, resourcesData, teamData] = await Promise.all([
-        api.bookingRequests.getAll().catch(() => []),
-        api.messages.getAll().catch(() => []),
-        api.notifications.getAll().catch(() => []),
-        api.documents.getAll().catch(() => []),
-        api.resources.getAll().catch(() => []),
-        api.teamMembers.getAll().catch(() => []),
+        apiCall(DATA_API, '/booking_request').catch(() => []),
+        apiCall(DATA_API, '/message').catch(() => []),
+        apiCall(DATA_API, '/notification').catch(() => []),
+        apiCall(DATA_API, '/document').catch(() => []),
+        apiCall(DATA_API, '/resource').catch(() => []),
+        apiCall(DATA_API, '/team_member').catch(() => []),
       ]);
       
-      setBookingRequests(requestsData);
-      setMessages(messagesData);
-      setNotifications(notificationsData);
-      setDocuments(documentsData);
-      setResources(resourcesData);
-      setTeamMembers(teamData);
+      setBookingRequests(Array.isArray(requestsData) ? requestsData : []);
+      setMessages(Array.isArray(messagesData) ? messagesData : []);
+      setNotifications(Array.isArray(notificationsData) ? notificationsData : []);
+      setDocuments(Array.isArray(documentsData) ? documentsData : []);
+      setResources(Array.isArray(resourcesData) ? resourcesData : []);
+      setTeamMembers(Array.isArray(teamData) ? teamData : []);
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -145,7 +172,10 @@ export default function PulpitApp() {
     setAuthError('');
     
     try {
-      const response = await api.auth.login(loginForm);
+      const response = await apiCall(AUTH_API, '/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      });
       localStorage.setItem('authToken', response.authToken);
       await loadUserData();
     } catch (error) {
@@ -160,7 +190,14 @@ export default function PulpitApp() {
     setAuthError('');
     
     try {
-      const response = await api.auth.signup(signupForm);
+      const response = await apiCall(AUTH_API, '/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          name: signupName, 
+          email: signupEmail, 
+          password: signupPassword
+        }),
+      });
       localStorage.setItem('authToken', response.authToken);
       await loadUserData();
     } catch (error) {
@@ -192,196 +229,190 @@ export default function PulpitApp() {
   const unreadMessages = messages.filter(m => !m.read).length;
   const pendingRequests = bookingRequests.filter(r => r.status === 'pending').length;
 
-  // Landing Page
-  const LandingPage = () => (
-    <div style={{ minHeight: '100vh', background: '#0A0A0A' }}>
-      {/* Nav */}
-      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 48px', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
-        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '28px', letterSpacing: '2px' }}>PULPIT</div>
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <button onClick={() => { setCurrentView('auth'); setAuthMode('login'); }} style={styles.buttonSecondary}>Log In</button>
-          <button onClick={() => { setCurrentView('auth'); setAuthMode('signup'); }} style={styles.button}>GET STARTED</button>
-        </div>
-      </nav>
-
-      {/* Hero */}
-      <section style={{ padding: '120px 48px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
-        <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '72px', letterSpacing: '3px', lineHeight: '1.1', marginBottom: '24px' }}>
-          THE BOOKING PLATFORM FOR SPEAKERS & WORSHIP LEADERS
-        </h1>
-        <p style={{ fontSize: '18px', color: 'rgba(247,243,233,0.7)', marginBottom: '48px', lineHeight: '1.7' }}>
-          Manage requests, contracts, itineraries, and communication—all in one place. 100% free.
-        </p>
-        <button onClick={() => { setCurrentView('auth'); setAuthMode('signup'); }} style={{ ...styles.button, padding: '18px 48px', fontSize: '15px' }}>
-          CREATE YOUR FREE ACCOUNT
-        </button>
-      </section>
-
-      {/* Features */}
-      <section style={{ padding: '80px 48px', background: 'rgba(247,243,233,0.02)' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '36px', textAlign: 'center', marginBottom: '64px', letterSpacing: '2px' }}>EVERYTHING YOU NEED</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px' }}>
-            {[
-              { icon: Briefcase, title: 'Booking Requests', desc: 'Receive and manage speaking requests with all details in one place' },
-              { icon: FileText, title: 'Contracts & Documents', desc: 'Send contracts, collect signatures, store W9s and safety docs' },
-              { icon: ClipboardList, title: 'Itineraries', desc: 'Collaborate with hosts on travel details and event schedules' },
-              { icon: MessageSquare, title: 'Messaging', desc: 'Communicate directly with event hosts without email chains' },
-              { icon: Calendar, title: 'Calendar', desc: 'See all your events and manage availability in one view' },
-              { icon: Bell, title: 'Notifications', desc: 'Never miss a request or message with real-time alerts' },
-            ].map((feature, i) => (
-              <div key={i} style={styles.card}>
-                <feature.icon size={32} color="#535E4A" style={{ marginBottom: '16px' }} />
-                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '8px', letterSpacing: '1px' }}>{feature.title}</h3>
-                <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.6)', lineHeight: '1.6' }}>{feature.desc}</p>
-              </div>
-            ))}
+  // LANDING PAGE
+  if (currentView === 'landing') {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0A0A0A' }}>
+        <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 48px', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '28px', letterSpacing: '2px', color: '#F7F3E9' }}>PULPIT</div>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <button onClick={() => { setCurrentView('auth'); setAuthMode('login'); }} style={styles.buttonSecondary}>Log In</button>
+            <button onClick={() => { setCurrentView('auth'); setAuthMode('signup'); }} style={styles.button}>GET STARTED</button>
           </div>
-        </div>
-      </section>
+        </nav>
 
-      {/* CTA */}
-      <section style={{ padding: '120px 48px', textAlign: 'center' }}>
-        <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '48px', marginBottom: '24px', letterSpacing: '2px' }}>READY TO SIMPLIFY YOUR BOOKING?</h2>
-        <p style={{ fontSize: '16px', color: 'rgba(247,243,233,0.6)', marginBottom: '32px' }}>Join speakers and worship leaders who've streamlined their workflow.</p>
-        <button onClick={() => { setCurrentView('auth'); setAuthMode('signup'); }} style={{ ...styles.button, padding: '18px 48px', fontSize: '15px' }}>GET STARTED FREE</button>
-      </section>
-    </div>
-  );
-
-  // Auth Page
-  const AuthPage = () => (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px' }}>
-      <div style={{ ...styles.card, width: '100%', maxWidth: '420px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '32px', letterSpacing: '2px', marginBottom: '8px' }}>PULPIT</div>
-          <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.6)' }}>
-            {authMode === 'login' ? 'Welcome back' : 'Create your account'}
+        <section style={{ padding: '120px 48px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '72px', letterSpacing: '3px', lineHeight: '1.1', marginBottom: '24px', color: '#F7F3E9' }}>
+            THE BOOKING PLATFORM FOR SPEAKERS & WORSHIP LEADERS
+          </h1>
+          <p style={{ fontSize: '18px', color: 'rgba(247,243,233,0.7)', marginBottom: '48px', lineHeight: '1.7' }}>
+            Manage requests, contracts, itineraries, and communication—all in one place. 100% free.
           </p>
-        </div>
+          <button onClick={() => { setCurrentView('auth'); setAuthMode('signup'); }} style={{ ...styles.button, padding: '18px 48px', fontSize: '15px' }}>
+            CREATE YOUR FREE ACCOUNT
+          </button>
+        </section>
 
-        {authError && (
-          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '12px', marginBottom: '20px', fontSize: '13px', color: '#EF4444' }}>
-            {authError}
+        <section style={{ padding: '80px 48px', background: 'rgba(247,243,233,0.02)' }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '36px', textAlign: 'center', marginBottom: '64px', letterSpacing: '2px', color: '#F7F3E9' }}>EVERYTHING YOU NEED</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '32px' }}>
+              {[
+                { icon: Briefcase, title: 'Booking Requests', desc: 'Receive and manage speaking requests with all details in one place' },
+                { icon: FileText, title: 'Contracts & Documents', desc: 'Send contracts, collect signatures, store W9s and safety docs' },
+                { icon: Calendar, title: 'Itineraries', desc: 'Collaborate with hosts on travel details and event schedules' },
+                { icon: MessageSquare, title: 'Messaging', desc: 'Communicate directly with event hosts without email chains' },
+                { icon: Calendar, title: 'Calendar', desc: 'See all your events and manage availability in one view' },
+                { icon: Bell, title: 'Notifications', desc: 'Never miss a request or message with real-time alerts' },
+              ].map((feature, i) => (
+                <div key={i} style={styles.card}>
+                  <feature.icon size={32} color="#535E4A" style={{ marginBottom: '16px' }} />
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '8px', letterSpacing: '1px', color: '#F7F3E9' }}>{feature.title}</h3>
+                  <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.6)', lineHeight: '1.6' }}>{feature.desc}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        )}
+        </section>
+      </div>
+    );
+  }
 
-        {authMode === 'login' ? (
-          <form onSubmit={handleLogin}>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={styles.label}>Email</label>
-              <input 
-                type="email" 
-                value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                style={styles.input} 
-                required 
-              />
+  // AUTH PAGE
+  if (currentView === 'auth') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', background: '#0A0A0A' }}>
+        <div style={{ ...styles.card, width: '100%', maxWidth: '420px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '32px', letterSpacing: '2px', marginBottom: '8px', color: '#F7F3E9' }}>PULPIT</div>
+            <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.6)' }}>
+              {authMode === 'login' ? 'Welcome back' : 'Create your account'}
+            </p>
+          </div>
+
+          {authError && (
+            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '12px', marginBottom: '20px', fontSize: '13px', color: '#EF4444' }}>
+              {authError}
             </div>
-            <div style={{ marginBottom: '24px' }}>
-              <label style={styles.label}>Password</label>
-              <input 
-                type="password" 
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                style={styles.input} 
-                required 
-              />
-            </div>
-            <button type="submit" disabled={authLoading} style={{ ...styles.button, width: '100%', opacity: authLoading ? 0.6 : 1 }}>
-              {authLoading ? 'LOGGING IN...' : 'LOG IN'}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleSignup}>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={styles.label}>Name</label>
-              <input 
-                type="text" 
-                value={signupForm.name}
-                onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
-                style={styles.input} 
-                required 
-              />
-            </div>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={styles.label}>Email</label>
-              <input 
-                type="email" 
-                value={signupForm.email}
-                onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
-                style={styles.input} 
-                required 
-              />
-            </div>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={styles.label}>Password</label>
-              <input 
-                type="password" 
-                value={signupForm.password}
-                onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-                style={styles.input} 
-                required 
-              />
-            </div>
-            <div style={{ marginBottom: '24px' }}>
-              <label style={styles.label}>I am a...</label>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                {['speaker', 'worship_leader', 'event_host'].map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setSignupForm({ ...signupForm, user_type: type })}
-                    style={{
-                      flex: 1,
-                      padding: '12px',
-                      background: signupForm.user_type === type ? 'rgba(83,94,74,0.3)' : 'rgba(247,243,233,0.05)',
-                      border: signupForm.user_type === type ? '2px solid #535E4A' : '1px solid rgba(247,243,233,0.15)',
-                      borderRadius: '10px',
-                      color: '#F7F3E9',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      textTransform: 'capitalize',
-                    }}
-                  >
-                    {type.replace('_', ' ')}
-                  </button>
-                ))}
+          )}
+
+          {authMode === 'login' ? (
+            <form onSubmit={handleLogin}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={styles.label}>Email</label>
+                <input 
+                  type="email" 
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  style={styles.input} 
+                  required 
+                />
               </div>
-            </div>
-            <button type="submit" disabled={authLoading} style={{ ...styles.button, width: '100%', opacity: authLoading ? 0.6 : 1 }}>
-              {authLoading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={styles.label}>Password</label>
+                <input 
+                  type="password" 
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  style={styles.input} 
+                  required 
+                />
+              </div>
+              <button type="submit" disabled={authLoading} style={{ ...styles.button, width: '100%', opacity: authLoading ? 0.6 : 1 }}>
+                {authLoading ? 'LOGGING IN...' : 'LOG IN'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignup}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={styles.label}>Name</label>
+                <input 
+                  type="text" 
+                  value={signupName}
+                  onChange={(e) => setSignupName(e.target.value)}
+                  style={styles.input} 
+                  required 
+                />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={styles.label}>Email</label>
+                <input 
+                  type="email" 
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  style={styles.input} 
+                  required 
+                />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={styles.label}>Password</label>
+                <input 
+                  type="password" 
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  style={styles.input} 
+                  required 
+                />
+              </div>
+              <div style={{ marginBottom: '24px' }}>
+                <label style={styles.label}>I am a...</label>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {['speaker', 'worship_leader', 'event_host'].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setSignupUserType(type)}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        background: signupUserType === type ? 'rgba(83,94,74,0.3)' : 'rgba(247,243,233,0.05)',
+                        border: signupUserType === type ? '2px solid #535E4A' : '1px solid rgba(247,243,233,0.15)',
+                        borderRadius: '10px',
+                        color: '#F7F3E9',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {type.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button type="submit" disabled={authLoading} style={{ ...styles.button, width: '100%', opacity: authLoading ? 0.6 : 1 }}>
+                {authLoading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}
+              </button>
+            </form>
+          )}
+
+          <div style={{ textAlign: 'center', marginTop: '24px' }}>
+            <button 
+              onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(''); }}
+              style={{ background: 'transparent', border: 'none', color: '#535E4A', cursor: 'pointer', fontSize: '14px' }}
+            >
+              {authMode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
             </button>
-          </form>
-        )}
+          </div>
 
-        <div style={{ textAlign: 'center', marginTop: '24px' }}>
-          <button 
-            onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(''); }}
-            style={{ background: 'transparent', border: 'none', color: '#535E4A', cursor: 'pointer', fontSize: '14px' }}
-          >
-            {authMode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
-          </button>
-        </div>
-
-        <div style={{ textAlign: 'center', marginTop: '16px' }}>
-          <button 
-            onClick={() => setCurrentView('landing')}
-            style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '13px' }}
-          >
-            ← Back to home
-          </button>
+          <div style={{ textAlign: 'center', marginTop: '16px' }}>
+            <button 
+              onClick={() => setCurrentView('landing')}
+              style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '13px' }}
+            >
+              ← Back to home
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  // Main App
-  const MainApp = () => (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+  // MAIN APP
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#0A0A0A' }}>
       {/* Sidebar */}
       <div style={{ width: '240px', background: 'rgba(247,243,233,0.02)', borderRight: '1px solid rgba(247,243,233,0.08)', padding: '24px 16px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '24px', letterSpacing: '2px', marginBottom: '32px', paddingLeft: '12px' }}>PULPIT</div>
+        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '24px', letterSpacing: '2px', marginBottom: '32px', paddingLeft: '12px', color: '#F7F3E9' }}>PULPIT</div>
         
         <nav style={{ flex: 1 }}>
           {navItems.map((item) => (
@@ -426,7 +457,7 @@ export default function PulpitApp() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <div>
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '32px', letterSpacing: '2px' }}>
+            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '32px', letterSpacing: '2px', color: '#F7F3E9' }}>
               {activeTab === 'dashboard' && `Welcome, ${currentUser?.name || 'User'}`}
               {activeTab === 'requests' && 'BOOKING REQUESTS'}
               {activeTab === 'calendar' && 'CALENDAR'}
@@ -457,8 +488,7 @@ export default function PulpitApp() {
             {/* Dashboard */}
             {activeTab === 'dashboard' && (
               <div>
-                {/* Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '32px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
                   {[
                     { label: 'Pending Requests', value: pendingRequests, color: '#FFB400' },
                     { label: 'Confirmed Events', value: bookingRequests.filter(r => r.status === 'confirmed').length, color: '#4CAF50' },
@@ -472,20 +502,19 @@ export default function PulpitApp() {
                   ))}
                 </div>
 
-                {/* Recent Requests */}
                 <div style={styles.card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px' }}>RECENT REQUESTS</h2>
+                    <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9' }}>RECENT REQUESTS</h2>
                     <button onClick={() => setActiveTab('requests')} style={{ background: 'transparent', border: 'none', color: '#535E4A', cursor: 'pointer', fontSize: '13px' }}>View All →</button>
                   </div>
                   
                   {bookingRequests.length === 0 ? (
                     <p style={{ color: 'rgba(247,243,233,0.5)', textAlign: 'center', padding: '32px' }}>No booking requests yet</p>
                   ) : (
-                    bookingRequests.slice(0, 5).map((request) => (
-                      <div key={request.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px' }}>
+                    bookingRequests.slice(0, 5).map((request, index) => (
+                      <div key={request.id || index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px' }}>
                         <div>
-                          <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px' }}>{request.event_name}</p>
+                          <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px', color: '#F7F3E9' }}>{request.event_name}</p>
                           <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>{request.church_name} • {request.location}</p>
                         </div>
                         <span style={{ 
@@ -512,239 +541,83 @@ export default function PulpitApp() {
                     <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '13px' }}>Share your booking link to start receiving requests</p>
                   </div>
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(247,243,233,0.1)' }}>
-                        <th style={{ textAlign: 'left', padding: '12px', fontSize: '11px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase' }}>Event</th>
-                        <th style={{ textAlign: 'left', padding: '12px', fontSize: '11px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase' }}>Location</th>
-                        <th style={{ textAlign: 'left', padding: '12px', fontSize: '11px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase' }}>Date</th>
-                        <th style={{ textAlign: 'left', padding: '12px', fontSize: '11px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase' }}>Status</th>
-                        <th style={{ textAlign: 'right', padding: '12px' }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bookingRequests.map((request) => (
-                        <tr key={request.id} style={{ borderBottom: '1px solid rgba(247,243,233,0.06)' }}>
-                          <td style={{ padding: '16px' }}>
-                            <p style={{ fontWeight: '500', marginBottom: '2px' }}>{request.event_name}</p>
-                            <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>{request.church_name}</p>
-                          </td>
-                          <td style={{ padding: '16px', color: 'rgba(247,243,233,0.7)', fontSize: '14px' }}>{request.location}</td>
-                          <td style={{ padding: '16px', color: 'rgba(247,243,233,0.7)', fontSize: '14px' }}>{request.event_date ? new Date(request.event_date).toLocaleDateString() : '—'}</td>
-                          <td style={{ padding: '16px' }}>
-                            <span style={{ 
-                              ...styles.badge, 
-                              background: request.status === 'pending' ? 'rgba(255,180,0,0.15)' : request.status === 'confirmed' ? 'rgba(76,175,80,0.15)' : 'rgba(247,243,233,0.1)',
-                              color: request.status === 'pending' ? '#FFB400' : request.status === 'confirmed' ? '#4CAF50' : 'rgba(247,243,233,0.5)',
-                            }}>
-                              {request.status}
-                            </span>
-                          </td>
-                          <td style={{ padding: '16px', textAlign: 'right' }}>
-                            <button style={styles.buttonSecondary}>View</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  bookingRequests.map((request, index) => (
+                    <div key={request.id || index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px' }}>
+                      <div>
+                        <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px', color: '#F7F3E9' }}>{request.event_name}</p>
+                        <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>{request.church_name} • {request.location}</p>
+                      </div>
+                      <span style={{ ...styles.badge, background: 'rgba(255,180,0,0.15)', color: '#FFB400' }}>{request.status}</span>
+                    </div>
+                  ))
                 )}
               </div>
             )}
 
-            {/* Messages */}
             {activeTab === 'messages' && (
               <div style={styles.card}>
-                {messages.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '64px' }}>
-                    <MessageSquare size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                    <p style={{ color: 'rgba(247,243,233,0.5)' }}>No messages yet</p>
-                  </div>
-                ) : (
-                  messages.map((message) => (
-                    <div key={message.id} style={{ display: 'flex', gap: '16px', padding: '16px', background: message.read ? 'transparent' : 'rgba(83,94,74,0.1)', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer' }}>
-                      <div style={{ width: '44px', height: '44px', background: 'rgba(247,243,233,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <User size={20} color="rgba(247,243,233,0.5)" />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <p style={{ fontWeight: '500', marginBottom: '4px' }}>Message #{message.id}</p>
-                        <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{message.content}</p>
-                      </div>
-                      {!message.read && <div style={{ width: '8px', height: '8px', background: '#535E4A', borderRadius: '50%', alignSelf: 'center' }} />}
-                    </div>
-                  ))
-                )}
+                <div style={{ textAlign: 'center', padding: '64px' }}>
+                  <MessageSquare size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
+                  <p style={{ color: 'rgba(247,243,233,0.5)' }}>No messages yet</p>
+                </div>
               </div>
             )}
 
-            {/* Profile */}
             {activeTab === 'profile' && (
               <div style={styles.card}>
-                <div style={{ display: 'flex', alignItems: 'start', gap: '24px', marginBottom: '32px' }}>
-                  <div style={{ width: '100px', height: '100px', background: 'linear-gradient(135deg, #535E4A, #3d4638)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: '600' }}>
-                    {currentUser?.name?.split(' ').map(n => n[0]).join('') || '?'}
+                <div style={{ textAlign: 'center', padding: '32px' }}>
+                  <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #535E4A, #3d4638)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '28px', fontWeight: '600', color: '#F7F3E9' }}>
+                    {currentUser?.name?.charAt(0) || '?'}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={styles.label}>Name</label>
-                      <input type="text" defaultValue={currentUser?.name || ''} style={styles.input} />
-                    </div>
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={styles.label}>Tagline</label>
-                      <input type="text" defaultValue={currentUser?.tagline || ''} placeholder="e.g., Youth Speaker & Author" style={styles.input} />
-                    </div>
-                  </div>
+                  <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '4px', color: '#F7F3E9' }}>{currentUser?.name || 'User'}</h2>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', marginBottom: '24px' }}>{currentUser?.email}</p>
+                  <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '14px' }}>Profile editing coming soon</p>
                 </div>
-
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={styles.label}>Bio</label>
-                  <textarea rows={4} defaultValue={currentUser?.bio || ''} placeholder="Tell event hosts about yourself..." style={{ ...styles.input, resize: 'none' }} />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                  <div>
-                    <label style={styles.label}>Location</label>
-                    <input type="text" defaultValue={currentUser?.location || ''} placeholder="City, State" style={styles.input} />
-                  </div>
-                  <div>
-                    <label style={styles.label}>Topics</label>
-                    <input type="text" defaultValue={currentUser?.topics || ''} placeholder="e.g., Youth, Identity, Faith" style={styles.input} />
-                  </div>
-                </div>
-
-                <button style={styles.button}>SAVE CHANGES</button>
               </div>
             )}
 
-            {/* Documents */}
-            {activeTab === 'documents' && (
-              <div style={styles.card}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '14px' }}>Store and manage event documents</p>
-                  <button style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Plus size={16} /> UPLOAD
-                  </button>
-                </div>
-                
-                {documents.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '64px' }}>
-                    <FolderOpen size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                    <p style={{ color: 'rgba(247,243,233,0.5)' }}>No documents yet</p>
-                  </div>
-                ) : (
-                  documents.map((doc) => (
-                    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <FileText size={20} color="#535E4A" />
-                        <div>
-                          <p style={{ fontWeight: '500' }}>{doc.name}</p>
-                          <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>{doc.document_type}</p>
-                        </div>
-                      </div>
-                      <button style={styles.buttonSecondary}><Download size={16} /></button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Resources */}
-            {activeTab === 'resources' && (
-              <div style={styles.card}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '14px' }}>Sermon outlines and materials for event hosts</p>
-                  <button style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Plus size={16} /> UPLOAD
-                  </button>
-                </div>
-                
-                {resources.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '64px' }}>
-                    <FileText size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                    <p style={{ color: 'rgba(247,243,233,0.5)' }}>No resources yet</p>
-                  </div>
-                ) : (
-                  resources.map((resource) => (
-                    <div key={resource.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <File size={20} color="#535E4A" />
-                        <div>
-                          <p style={{ fontWeight: '500' }}>{resource.name}</p>
-                          <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>{resource.resource_type} • {resource.download_count || 0} downloads</p>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button style={styles.buttonSecondary}><Edit size={16} /></button>
-                        <button style={styles.buttonSecondary}><Trash2 size={16} /></button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Team */}
-            {activeTab === 'team' && (
-              <div style={styles.card}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '14px' }}>Invite booking managers to help manage your requests</p>
-                  <button style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <UserPlus size={16} /> INVITE
-                  </button>
-                </div>
-                
-                {teamMembers.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '64px' }}>
-                    <Users size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                    <p style={{ color: 'rgba(247,243,233,0.5)' }}>No team members yet</p>
-                  </div>
-                ) : (
-                  teamMembers.map((member) => (
-                    <div key={member.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '40px', height: '40px', background: 'rgba(247,243,233,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <User size={18} color="rgba(247,243,233,0.5)" />
-                        </div>
-                        <div>
-                          <p style={{ fontWeight: '500' }}>{member.member_name}</p>
-                          <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>{member.member_email}</p>
-                        </div>
-                      </div>
-                      <span style={{ 
-                        ...styles.badge, 
-                        background: member.status === 'active' ? 'rgba(76,175,80,0.15)' : 'rgba(255,180,0,0.15)',
-                        color: member.status === 'active' ? '#4CAF50' : '#FFB400',
-                      }}>
-                        {member.status}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Calendar */}
             {activeTab === 'calendar' && (
               <div style={styles.card}>
                 <div style={{ textAlign: 'center', padding: '64px' }}>
                   <Calendar size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                  <p style={{ color: 'rgba(247,243,233,0.5)', marginBottom: '8px' }}>Calendar view coming soon</p>
-                  <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '13px' }}>Your confirmed events will appear here</p>
+                  <p style={{ color: 'rgba(247,243,233,0.5)' }}>Calendar coming soon</p>
                 </div>
               </div>
             )}
 
-            {/* Settings */}
+            {activeTab === 'documents' && (
+              <div style={styles.card}>
+                <div style={{ textAlign: 'center', padding: '64px' }}>
+                  <FolderOpen size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
+                  <p style={{ color: 'rgba(247,243,233,0.5)' }}>No documents yet</p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'resources' && (
+              <div style={styles.card}>
+                <div style={{ textAlign: 'center', padding: '64px' }}>
+                  <FileText size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
+                  <p style={{ color: 'rgba(247,243,233,0.5)' }}>No resources yet</p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'team' && (
+              <div style={styles.card}>
+                <div style={{ textAlign: 'center', padding: '64px' }}>
+                  <Users size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
+                  <p style={{ color: 'rgba(247,243,233,0.5)' }}>No team members yet</p>
+                </div>
+              </div>
+            )}
+
             {activeTab === 'settings' && (
               <div style={styles.card}>
-                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px' }}>NOTIFICATIONS</h3>
-                {[
-                  'New booking requests',
-                  'Messages',
-                  'Document signed',
-                  'Event reminders',
-                ].map((setting, i) => (
+                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>NOTIFICATIONS</h3>
+                {['New booking requests', 'Messages', 'Document signed', 'Event reminders'].map((setting, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
-                    <span style={{ fontSize: '14px' }}>{setting}</span>
+                    <span style={{ fontSize: '14px', color: '#F7F3E9' }}>{setting}</span>
                     <div style={{ width: '44px', height: '24px', background: '#535E4A', borderRadius: '12px', padding: '2px', cursor: 'pointer' }}>
                       <div style={{ width: '20px', height: '20px', background: '#F7F3E9', borderRadius: '50%', marginLeft: 'auto' }} />
                     </div>
@@ -757,11 +630,4 @@ export default function PulpitApp() {
       </div>
     </div>
   );
-
-  // Render based on current view
-  if (currentView === 'landing') return <LandingPage />;
-  if (currentView === 'auth') return <AuthPage />;
-  if (currentView === 'app') return <MainApp />;
-  
-  return <LandingPage />;
 }
