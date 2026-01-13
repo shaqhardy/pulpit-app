@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft, ChevronRight, Menu, Edit, Save, Upload, Send, Plane, Car, Coffee, Bed, Trash2, Mic, Music, AlertCircle } from 'lucide-react';
+import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft, ChevronRight, Menu, Edit, Save, Upload, Send, Plane, Car, Coffee, Bed, Trash2, Mic, Music, AlertCircle, Image, Video, FileCheck, Link, Share2, Download, Eye, EyeOff, Lock, Globe, Smartphone, UserPlus, Shield, Crown, UserMinus } from 'lucide-react';
 
 // TWO different API bases in Xano
 const AUTH_API = 'https://x8ki-letl-twmt.n7.xano.io/api:fwui2Env';
@@ -193,6 +193,34 @@ export default function PulpitApp() {
   const [editingItineraryItem, setEditingItineraryItem] = useState(null);
   const [editItineraryForm, setEditItineraryForm] = useState({ item_type: '', title: '', details: '', location: '', date_time: '' });
   
+  // Notification dropdown state
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  
+  // Resources state
+  const [resourceCategory, setResourceCategory] = useState('all');
+  const [uploadingResource, setUploadingResource] = useState(false);
+  const [newResourceForm, setNewResourceForm] = useState({ name: '', category: 'media_kit', description: '', link: '' });
+  const [showAddResource, setShowAddResource] = useState(false);
+  
+  // Team state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ email: '', name: '', role: 'viewer' });
+  const [invitingMember, setInvitingMember] = useState(false);
+  
+  // Settings state
+  const [settingsTab, setSettingsTab] = useState('notifications');
+  const [notificationSettings, setNotificationSettings] = useState({
+    new_requests: true,
+    messages: true,
+    document_signed: true,
+    event_reminders: true,
+    email_notifications: true,
+    push_notifications: false,
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  
   // Form data
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -234,6 +262,28 @@ export default function PulpitApp() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState('');
 
+  // PWA Install prompt listener
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallPrompt(true);
+    };
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallPrompt(false);
+    }
+    setDeferredPrompt(null);
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('book') === '1' || window.location.pathname.includes('/book')) {
@@ -255,6 +305,11 @@ export default function PulpitApp() {
       setIsAuthenticated(true);
       setCurrentView('app');
       loadAllData();
+      // Load settings from localStorage
+      const savedSettings = localStorage.getItem('notificationSettings');
+      if (savedSettings) {
+        setNotificationSettings(JSON.parse(savedSettings));
+      }
     } catch (error) {
       localStorage.removeItem('authToken');
     }
@@ -440,6 +495,132 @@ export default function PulpitApp() {
     } catch (error) {
       console.error('Failed to delete itinerary item:', error);
     }
+  };
+
+  // Resource functions
+  const handleAddResource = async () => {
+    if (!newResourceForm.name) return;
+    setUploadingResource(true);
+    try {
+      await apiCall(DATA_API, '/resource', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newResourceForm.name,
+          category: newResourceForm.category,
+          description: newResourceForm.description,
+          link: newResourceForm.link,
+          user_id: currentUser.id,
+          created_at: new Date().toISOString(),
+        }),
+      });
+      setNewResourceForm({ name: '', category: 'media_kit', description: '', link: '' });
+      setShowAddResource(false);
+      const resourcesData = await apiCall(DATA_API, '/resource').catch(() => []);
+      setResources(Array.isArray(resourcesData) ? resourcesData : []);
+    } catch (error) {
+      console.error('Failed to add resource:', error);
+    }
+    setUploadingResource(false);
+  };
+
+  const handleDeleteResource = async (resourceId) => {
+    try {
+      await apiCall(DATA_API, `/resource/${resourceId}`, { method: 'DELETE' });
+      const resourcesData = await apiCall(DATA_API, '/resource').catch(() => []);
+      setResources(Array.isArray(resourcesData) ? resourcesData : []);
+    } catch (error) {
+      console.error('Failed to delete resource:', error);
+    }
+  };
+
+  // Team functions
+  const handleInviteTeamMember = async () => {
+    if (!inviteForm.email || !inviteForm.name) return;
+    setInvitingMember(true);
+    try {
+      await apiCall(DATA_API, '/team_member', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: inviteForm.email,
+          name: inviteForm.name,
+          role: inviteForm.role,
+          user_id: currentUser.id,
+          status: 'pending',
+          invited_at: new Date().toISOString(),
+        }),
+      });
+      setInviteForm({ email: '', name: '', role: 'viewer' });
+      setShowInviteModal(false);
+      const teamData = await apiCall(DATA_API, '/team_member').catch(() => []);
+      setTeamMembers(Array.isArray(teamData) ? teamData : []);
+    } catch (error) {
+      console.error('Failed to invite team member:', error);
+    }
+    setInvitingMember(false);
+  };
+
+  const handleRemoveTeamMember = async (memberId) => {
+    try {
+      await apiCall(DATA_API, `/team_member/${memberId}`, { method: 'DELETE' });
+      const teamData = await apiCall(DATA_API, '/team_member').catch(() => []);
+      setTeamMembers(Array.isArray(teamData) ? teamData : []);
+    } catch (error) {
+      console.error('Failed to remove team member:', error);
+    }
+  };
+
+  const handleUpdateTeamRole = async (memberId, newRole) => {
+    try {
+      await apiCall(DATA_API, `/team_member/${memberId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: newRole }),
+      });
+      const teamData = await apiCall(DATA_API, '/team_member').catch(() => []);
+      setTeamMembers(Array.isArray(teamData) ? teamData : []);
+    } catch (error) {
+      console.error('Failed to update team member role:', error);
+    }
+  };
+
+  // Notification functions
+  const handleMarkNotificationRead = async (notificationId) => {
+    try {
+      await apiCall(DATA_API, `/notification/${notificationId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ read: true }),
+      });
+      setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await Promise.all(
+        notifications.filter(n => !n.read).map(n =>
+          apiCall(DATA_API, `/notification/${n.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ read: true }),
+          })
+        )
+      );
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
+  };
+
+  // Settings functions
+  const handleSaveNotificationSettings = async () => {
+    setSavingSettings(true);
+    try {
+      localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    }
+    setSavingSettings(false);
   };
 
   const handleLogin = async (e) => {
@@ -659,6 +840,48 @@ export default function PulpitApp() {
     const found = itineraryTypeOptions.find(t => t.value === itemType);
     return found ? found.icon : Clock;
   };
+
+  // Resource categories
+  const resourceCategories = [
+    { value: 'media_kit', label: 'Media Kit', icon: FolderOpen },
+    { value: 'one_sheet', label: 'One-Sheet', icon: FileCheck },
+    { value: 'promo_photos', label: 'Promo Photos', icon: Image },
+    { value: 'videos', label: 'Videos', icon: Video },
+    { value: 'bio', label: 'Bio', icon: FileText },
+    { value: 'other', label: 'Other', icon: Link },
+  ];
+
+  // Team roles
+  const teamRoles = [
+    { value: 'admin', label: 'Admin', icon: Crown, description: 'Full access to all features' },
+    { value: 'manager', label: 'Manager', icon: Shield, description: 'Can manage bookings and messages' },
+    { value: 'viewer', label: 'Viewer', icon: Eye, description: 'Can only view information' },
+  ];
+
+  const getResourceIcon = (category) => {
+    const found = resourceCategories.find(c => c.value === category);
+    return found ? found.icon : FileText;
+  };
+
+  const getRoleIcon = (role) => {
+    const found = teamRoles.find(r => r.value === role);
+    return found ? found.icon : Eye;
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'booking_request': return Briefcase;
+      case 'message': return MessageSquare;
+      case 'document': return FileText;
+      case 'reminder': return Clock;
+      default: return Bell;
+    }
+  };
+
+  // Filter resources by category
+  const filteredResources = resourceCategory === 'all' 
+    ? resources 
+    : resources.filter(r => r.category === resourceCategory);
 
   const getStatusBadge = (status) => {
     const statusStyles = {
@@ -1724,13 +1947,112 @@ export default function PulpitApp() {
             {activeTab === 'team' && 'Team'}
             {activeTab === 'settings' && 'Settings'}
           </h1>
-          <button style={{ position: 'relative', background: 'transparent', border: 'none', cursor: 'pointer' }}>
-            <Bell size={20} color="rgba(247,243,233,0.6)" />
-            {unreadNotifications > 0 && (
-              <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', background: '#EF4444', borderRadius: '50%' }} />
+          
+          {/* Notification Bell with Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)}
+              style={{ position: 'relative', background: 'transparent', border: 'none', cursor: 'pointer', padding: '8px' }}
+            >
+              <Bell size={20} color="rgba(247,243,233,0.6)" />
+              {unreadNotifications > 0 && (
+                <span style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', background: '#EF4444', borderRadius: '50%' }} />
+              )}
+            </button>
+            
+            {/* Notification Dropdown */}
+            {notificationDropdownOpen && (
+              <div style={{ 
+                position: 'absolute', 
+                top: '100%', 
+                right: 0, 
+                width: isMobile ? '300px' : '360px', 
+                maxHeight: '400px',
+                background: '#0A0A0A', 
+                border: '1px solid rgba(247,243,233,0.1)', 
+                borderRadius: '12px', 
+                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                zIndex: 1000,
+                overflow: 'hidden',
+              }}>
+                <div style={{ padding: '16px', borderBottom: '1px solid rgba(247,243,233,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9' }}>NOTIFICATIONS</h3>
+                  {unreadNotifications > 0 && (
+                    <button 
+                      onClick={handleMarkAllNotificationsRead}
+                      style={{ background: 'transparent', border: 'none', color: '#535E4A', cursor: 'pointer', fontSize: '12px' }}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: '32px', textAlign: 'center' }}>
+                      <Bell size={24} color="rgba(247,243,233,0.2)" style={{ marginBottom: '8px' }} />
+                      <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>No notifications yet</p>
+                    </div>
+                  ) : (
+                    notifications.slice(0, 10).map((notification, i) => {
+                      const NotifIcon = getNotificationIcon(notification.type);
+                      return (
+                        <div 
+                          key={notification.id || i}
+                          onClick={() => handleMarkNotificationRead(notification.id)}
+                          style={{ 
+                            padding: '12px 16px', 
+                            borderBottom: '1px solid rgba(247,243,233,0.05)',
+                            background: notification.read ? 'transparent' : 'rgba(83,94,74,0.1)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            gap: '12px',
+                            alignItems: 'flex-start',
+                          }}
+                        >
+                          <div style={{ width: '32px', height: '32px', background: 'rgba(247,243,233,0.05)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <NotifIcon size={16} color="rgba(247,243,233,0.5)" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ color: '#F7F3E9', fontSize: '13px', marginBottom: '4px', lineHeight: '1.4' }}>{notification.message || notification.title || 'New notification'}</p>
+                            <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '11px' }}>{notification.created_at ? new Date(notification.created_at).toLocaleString() : 'Just now'}</p>
+                          </div>
+                          {!notification.read && (
+                            <div style={{ width: '8px', height: '8px', background: '#535E4A', borderRadius: '50%', flexShrink: 0, marginTop: '4px' }} />
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                
+                {/* Install App Banner */}
+                {showInstallPrompt && (
+                  <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(247,243,233,0.08)', background: 'rgba(83,94,74,0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Smartphone size={20} color="#535E4A" />
+                      <div style={{ flex: 1 }}>
+                        <p style={{ color: '#F7F3E9', fontSize: '13px', fontWeight: '500' }}>Add to Home Screen</p>
+                        <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '11px' }}>Quick access to Pulpit</p>
+                      </div>
+                      <button onClick={handleInstallApp} style={{ ...styles.button, padding: '8px 12px', fontSize: '11px' }}>
+                        Install
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
-          </button>
+          </div>
         </div>
+
+        {/* Notification Dropdown Overlay */}
+        {notificationDropdownOpen && (
+          <div 
+            onClick={() => setNotificationDropdownOpen(false)} 
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} 
+          />
+        )}
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '64px' }}>
@@ -2117,34 +2439,460 @@ export default function PulpitApp() {
             )}
 
             {activeTab === 'resources' && (
-              <div style={styles.card}>
-                <div style={{ textAlign: 'center', padding: '64px' }}>
-                  <FileText size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                  <p style={{ color: 'rgba(247,243,233,0.5)' }}>No resources yet</p>
+              <div>
+                {/* Category Filter + Add Button */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => setResourceCategory('all')}
+                      style={{
+                        padding: '8px 16px',
+                        background: resourceCategory === 'all' ? 'rgba(83,94,74,0.3)' : 'rgba(247,243,233,0.05)',
+                        border: resourceCategory === 'all' ? '1px solid rgba(83,94,74,0.5)' : '1px solid rgba(247,243,233,0.1)',
+                        borderRadius: '20px',
+                        color: '#F7F3E9',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                      }}
+                    >
+                      All
+                    </button>
+                    {resourceCategories.map((cat) => (
+                      <button
+                        key={cat.value}
+                        onClick={() => setResourceCategory(cat.value)}
+                        style={{
+                          padding: '8px 16px',
+                          background: resourceCategory === cat.value ? 'rgba(83,94,74,0.3)' : 'rgba(247,243,233,0.05)',
+                          border: resourceCategory === cat.value ? '1px solid rgba(83,94,74,0.5)' : '1px solid rgba(247,243,233,0.1)',
+                          borderRadius: '20px',
+                          color: '#F7F3E9',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                        }}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setShowAddResource(true)} style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Plus size={16} /> ADD RESOURCE
+                  </button>
                 </div>
+
+                {/* Resources Grid */}
+                {filteredResources.length === 0 ? (
+                  <div style={{ ...styles.card, textAlign: 'center', padding: '64px' }}>
+                    <FolderOpen size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
+                    <p style={{ color: 'rgba(247,243,233,0.5)', marginBottom: '8px' }}>No resources yet</p>
+                    <p style={{ color: 'rgba(247,243,233,0.3)', fontSize: '13px', marginBottom: '24px' }}>Add your media kit, promo photos, bios, and more</p>
+                    <button onClick={() => setShowAddResource(true)} style={{ ...styles.buttonSecondary, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <Plus size={16} /> Add Your First Resource
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                    {filteredResources.map((resource, i) => {
+                      const ResourceIcon = getResourceIcon(resource.category);
+                      return (
+                        <div key={resource.id || i} style={{ ...styles.card, padding: '20px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ width: '40px', height: '40px', background: 'rgba(83,94,74,0.2)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ResourceIcon size={18} color="#535E4A" />
+                              </div>
+                              <div>
+                                <h4 style={{ color: '#F7F3E9', fontWeight: '500', marginBottom: '4px' }}>{resource.name}</h4>
+                                <span style={{ fontSize: '11px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                  {resourceCategories.find(c => c.value === resource.category)?.label || 'Other'}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteResource(resource.id)}
+                              style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.3)', cursor: 'pointer', padding: '4px' }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                          {resource.description && (
+                            <p style={{ color: 'rgba(247,243,233,0.6)', fontSize: '13px', marginBottom: '12px', lineHeight: '1.5' }}>{resource.description}</p>
+                          )}
+                          {resource.link && (
+                            <a
+                              href={resource.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#535E4A', fontSize: '13px', textDecoration: 'none' }}
+                            >
+                              <Link size={14} /> View Resource
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Add Resource Modal */}
+                {showAddResource && (
+                  <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ ...styles.card, background: '#0A0A0A', maxWidth: '450px', width: '100%' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                        <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '20px', letterSpacing: '1px', color: '#F7F3E9' }}>ADD RESOURCE</h2>
+                        <button onClick={() => setShowAddResource(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer' }}>
+                          <X size={20} />
+                        </button>
+                      </div>
+                      
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={styles.label}>Name *</label>
+                        <input type="text" value={newResourceForm.name} onChange={(e) => setNewResourceForm(prev => ({ ...prev, name: e.target.value }))} style={styles.input} placeholder="Resource name" />
+                      </div>
+                      
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={styles.label}>Category *</label>
+                        <select value={newResourceForm.category} onChange={(e) => setNewResourceForm(prev => ({ ...prev, category: e.target.value }))} style={styles.input}>
+                          {resourceCategories.map(cat => (
+                            <option key={cat.value} value={cat.value}>{cat.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={styles.label}>Link / URL</label>
+                        <input type="url" value={newResourceForm.link} onChange={(e) => setNewResourceForm(prev => ({ ...prev, link: e.target.value }))} style={styles.input} placeholder="https://..." />
+                      </div>
+                      
+                      <div style={{ marginBottom: '24px' }}>
+                        <label style={styles.label}>Description</label>
+                        <textarea value={newResourceForm.description} onChange={(e) => setNewResourceForm(prev => ({ ...prev, description: e.target.value }))} style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }} placeholder="Brief description..." />
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button onClick={() => setShowAddResource(false)} style={{ ...styles.buttonSecondary, flex: 1 }}>Cancel</button>
+                        <button onClick={handleAddResource} disabled={uploadingResource || !newResourceForm.name} style={{ ...styles.button, flex: 1, opacity: uploadingResource || !newResourceForm.name ? 0.5 : 1 }}>
+                          {uploadingResource ? 'ADDING...' : 'ADD RESOURCE'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === 'team' && (
-              <div style={styles.card}>
-                <div style={{ textAlign: 'center', padding: '64px' }}>
-                  <Users size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
-                  <p style={{ color: 'rgba(247,243,233,0.5)' }}>No team members yet</p>
+              <div>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <div>
+                    <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '14px' }}>Collaborate with your team on managing bookings</p>
+                  </div>
+                  <button onClick={() => setShowInviteModal(true)} style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <UserPlus size={16} /> INVITE MEMBER
+                  </button>
                 </div>
+
+                {/* Team Members */}
+                {teamMembers.length === 0 ? (
+                  <div style={{ ...styles.card, textAlign: 'center', padding: '64px' }}>
+                    <Users size={48} color="rgba(247,243,233,0.2)" style={{ marginBottom: '16px' }} />
+                    <p style={{ color: 'rgba(247,243,233,0.5)', marginBottom: '8px' }}>No team members yet</p>
+                    <p style={{ color: 'rgba(247,243,233,0.3)', fontSize: '13px', marginBottom: '24px' }}>Invite assistants, managers, or collaborators to help manage your bookings</p>
+                    <button onClick={() => setShowInviteModal(true)} style={{ ...styles.buttonSecondary, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <UserPlus size={16} /> Invite Your First Team Member
+                    </button>
+                  </div>
+                ) : (
+                  <div style={styles.card}>
+                    {/* Owner Card */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', background: 'rgba(83,94,74,0.1)', borderRadius: '12px', marginBottom: '16px' }}>
+                      <div style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #535E4A, #3d4638)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '600', color: '#F7F3E9' }}>
+                        {currentUser?.name?.charAt(0) || 'U'}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ color: '#F7F3E9', fontWeight: '500', marginBottom: '2px' }}>{currentUser?.name || 'You'}</p>
+                        <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>{currentUser?.email}</p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(83,94,74,0.3)', borderRadius: '20px' }}>
+                        <Crown size={14} color="#535E4A" />
+                        <span style={{ fontSize: '12px', color: '#F7F3E9', fontWeight: '500' }}>Owner</span>
+                      </div>
+                    </div>
+
+                    {/* Team Member Cards */}
+                    {teamMembers.map((member, i) => {
+                      const RoleIcon = getRoleIcon(member.role);
+                      return (
+                        <div key={member.id || i} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '12px', marginBottom: '8px', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+                          <div style={{ width: '48px', height: '48px', background: 'rgba(247,243,233,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '600', color: '#F7F3E9' }}>
+                            {member.name?.charAt(0) || 'T'}
+                          </div>
+                          <div style={{ flex: 1, minWidth: isMobile ? '100%' : 'auto' }}>
+                            <p style={{ color: '#F7F3E9', fontWeight: '500', marginBottom: '2px' }}>{member.name}</p>
+                            <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>{member.email}</p>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end', marginTop: isMobile ? '12px' : 0 }}>
+                            {member.status === 'pending' && (
+                              <span style={{ fontSize: '11px', color: '#FFB400', background: 'rgba(255,180,0,0.15)', padding: '4px 8px', borderRadius: '10px' }}>Pending</span>
+                            )}
+                            <select value={member.role} onChange={(e) => handleUpdateTeamRole(member.id, e.target.value)} style={{ ...styles.input, width: 'auto', padding: '8px 12px', fontSize: '12px' }}>
+                              {teamRoles.map((role) => (
+                                <option key={role.value} value={role.value}>{role.label}</option>
+                              ))}
+                            </select>
+                            <button onClick={() => handleRemoveTeamMember(member.id)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.3)', cursor: 'pointer', padding: '8px' }}>
+                              <UserMinus size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Permissions Info */}
+                <div style={{ ...styles.card, marginTop: '24px' }}>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>ROLE PERMISSIONS</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '16px' }}>
+                    {teamRoles.map((role) => {
+                      const RoleIcon = role.icon;
+                      return (
+                        <div key={role.value} style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <RoleIcon size={18} color="#535E4A" />
+                            <h4 style={{ color: '#F7F3E9', fontWeight: '500' }}>{role.label}</h4>
+                          </div>
+                          <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px', lineHeight: '1.5' }}>{role.description}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Invite Modal */}
+                {showInviteModal && (
+                  <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ ...styles.card, background: '#0A0A0A', maxWidth: '450px', width: '100%' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                        <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '20px', letterSpacing: '1px', color: '#F7F3E9' }}>INVITE TEAM MEMBER</h2>
+                        <button onClick={() => setShowInviteModal(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer' }}>
+                          <X size={20} />
+                        </button>
+                      </div>
+                      
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={styles.label}>Name *</label>
+                        <input type="text" value={inviteForm.name} onChange={(e) => setInviteForm(prev => ({ ...prev, name: e.target.value }))} style={styles.input} placeholder="Team member's name" />
+                      </div>
+                      
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={styles.label}>Email *</label>
+                        <input type="email" value={inviteForm.email} onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))} style={styles.input} placeholder="team@example.com" />
+                      </div>
+                      
+                      <div style={{ marginBottom: '24px' }}>
+                        <label style={styles.label}>Role *</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {teamRoles.map((role) => {
+                            const RoleIcon = role.icon;
+                            return (
+                              <div key={role.value} onClick={() => setInviteForm(prev => ({ ...prev, role: role.value }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: inviteForm.role === role.value ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', border: inviteForm.role === role.value ? '1px solid rgba(83,94,74,0.5)' : '1px solid rgba(247,243,233,0.08)', borderRadius: '10px', cursor: 'pointer' }}>
+                                <RoleIcon size={18} color={inviteForm.role === role.value ? '#535E4A' : 'rgba(247,243,233,0.5)'} />
+                                <div style={{ flex: 1 }}>
+                                  <p style={{ color: '#F7F3E9', fontWeight: '500', fontSize: '14px' }}>{role.label}</p>
+                                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px' }}>{role.description}</p>
+                                </div>
+                                {inviteForm.role === role.value && <Check size={16} color="#535E4A" />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button onClick={() => setShowInviteModal(false)} style={{ ...styles.buttonSecondary, flex: 1 }}>Cancel</button>
+                        <button onClick={handleInviteTeamMember} disabled={invitingMember || !inviteForm.email || !inviteForm.name} style={{ ...styles.button, flex: 1, opacity: invitingMember || !inviteForm.email || !inviteForm.name ? 0.5 : 1 }}>
+                          {invitingMember ? 'INVITING...' : 'SEND INVITE'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === 'settings' && (
-              <div style={styles.card}>
-                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>NOTIFICATIONS</h3>
-                {['New booking requests', 'Messages', 'Document signed', 'Event reminders'].map((setting, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
-                    <span style={{ fontSize: '14px', color: '#F7F3E9' }}>{setting}</span>
-                    <div style={{ width: '44px', height: '24px', background: '#535E4A', borderRadius: '12px', padding: '2px', cursor: 'pointer' }}>
-                      <div style={{ width: '20px', height: '20px', background: '#F7F3E9', borderRadius: '50%', marginLeft: 'auto' }} />
+              <div>
+                {/* Settings Tabs */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '16px', overflowX: 'auto' }}>
+                  {[
+                    { id: 'notifications', label: 'Notifications', icon: Bell },
+                    { id: 'profile', label: 'Profile & Privacy', icon: Lock },
+                    { id: 'app', label: 'App Settings', icon: Smartphone },
+                  ].map((tab) => (
+                    <button key={tab.id} onClick={() => setSettingsTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: settingsTab === tab.id ? 'rgba(83,94,74,0.3)' : 'transparent', border: settingsTab === tab.id ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent', borderRadius: '8px', color: settingsTab === tab.id ? '#F7F3E9' : 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                      <tab.icon size={16} />
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Notifications Settings */}
+                {settingsTab === 'notifications' && (
+                  <div style={styles.card}>
+                    <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>NOTIFICATION PREFERENCES</h3>
+                    
+                    <div style={{ marginBottom: '32px' }}>
+                      <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Activity Notifications</h4>
+                      {[
+                        { key: 'new_requests', label: 'New booking requests', desc: 'Get notified when someone submits a booking request' },
+                        { key: 'messages', label: 'Messages', desc: 'Get notified when you receive a new message' },
+                        { key: 'document_signed', label: 'Document signed', desc: 'Get notified when a document is signed' },
+                        { key: 'event_reminders', label: 'Event reminders', desc: 'Get reminders about upcoming events' },
+                      ].map((setting) => (
+                        <div key={setting.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
+                          <div>
+                            <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>{setting.label}</p>
+                            <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>{setting.desc}</p>
+                          </div>
+                          <button onClick={() => setNotificationSettings(prev => ({ ...prev, [setting.key]: !prev[setting.key] }))} style={{ width: '48px', height: '28px', background: notificationSettings[setting.key] ? '#535E4A' : 'rgba(247,243,233,0.1)', borderRadius: '14px', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+                            <div style={{ width: '22px', height: '22px', background: '#F7F3E9', borderRadius: '50%', position: 'absolute', top: '3px', left: notificationSettings[setting.key] ? '23px' : '3px', transition: 'left 0.2s' }} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Delivery Methods</h4>
+                      {[
+                        { key: 'email_notifications', label: 'Email notifications', desc: 'Receive notifications via email' },
+                        { key: 'push_notifications', label: 'Push notifications', desc: 'Receive push notifications on your device' },
+                      ].map((setting) => (
+                        <div key={setting.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
+                          <div>
+                            <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>{setting.label}</p>
+                            <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>{setting.desc}</p>
+                          </div>
+                          <button onClick={() => setNotificationSettings(prev => ({ ...prev, [setting.key]: !prev[setting.key] }))} style={{ width: '48px', height: '28px', background: notificationSettings[setting.key] ? '#535E4A' : 'rgba(247,243,233,0.1)', borderRadius: '14px', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+                            <div style={{ width: '22px', height: '22px', background: '#F7F3E9', borderRadius: '50%', position: 'absolute', top: '3px', left: notificationSettings[setting.key] ? '23px' : '3px', transition: 'left 0.2s' }} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button onClick={handleSaveNotificationSettings} disabled={savingSettings} style={{ ...styles.button, opacity: savingSettings ? 0.6 : 1 }}>
+                      {savingSettings ? 'SAVING...' : 'SAVE PREFERENCES'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Profile & Privacy Settings */}
+                {settingsTab === 'profile' && (
+                  <div style={styles.card}>
+                    <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>PROFILE & PRIVACY</h3>
+                    
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Profile Visibility</h4>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <Globe size={18} color="rgba(247,243,233,0.5)" />
+                          <div>
+                            <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>Public Profile</p>
+                            <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Allow anyone to view your speaker profile</p>
+                          </div>
+                        </div>
+                        <button style={{ width: '48px', height: '28px', background: '#535E4A', borderRadius: '14px', border: 'none', cursor: 'pointer', position: 'relative' }}>
+                          <div style={{ width: '22px', height: '22px', background: '#F7F3E9', borderRadius: '50%', position: 'absolute', top: '3px', left: '23px' }} />
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <Eye size={18} color="rgba(247,243,233,0.5)" />
+                          <div>
+                            <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>Show Contact Info</p>
+                            <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Display your email on public profile</p>
+                          </div>
+                        </div>
+                        <button style={{ width: '48px', height: '28px', background: 'rgba(247,243,233,0.1)', borderRadius: '14px', border: 'none', cursor: 'pointer', position: 'relative' }}>
+                          <div style={{ width: '22px', height: '22px', background: '#F7F3E9', borderRadius: '50%', position: 'absolute', top: '3px', left: '3px' }} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Your Public Profile URL</h4>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input type="text" value={`getpulpit.app/${currentUser?.name?.toLowerCase().replace(/\s+/g, '-') || 'your-name'}`} readOnly style={{ ...styles.input, flex: 1 }} />
+                        <button style={{ ...styles.buttonSecondary, display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 16px' }}>
+                          <Share2 size={16} /> Copy
+                        </button>
+                      </div>
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* App Settings */}
+                {settingsTab === 'app' && (
+                  <div>
+                    <div style={{ ...styles.card, marginBottom: '24px' }}>
+                      <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>APP INSTALLATION</h3>
+                      
+                      <div style={{ padding: '24px', background: 'rgba(83,94,74,0.1)', borderRadius: '12px', border: '1px solid rgba(83,94,74,0.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                          <div style={{ width: '56px', height: '56px', background: '#535E4A', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Smartphone size={28} color="#F7F3E9" />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <h4 style={{ color: '#F7F3E9', fontWeight: '500', marginBottom: '4px' }}>Add Pulpit to Home Screen</h4>
+                            <p style={{ color: 'rgba(247,243,233,0.6)', fontSize: '13px' }}>Get quick access to Pulpit from your device's home screen</p>
+                          </div>
+                        </div>
+                        
+                        {showInstallPrompt && deferredPrompt ? (
+                          <button onClick={handleInstallApp} style={{ ...styles.button, width: '100%' }}>
+                            INSTALL APP
+                          </button>
+                        ) : (
+                          <div>
+                            <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px', marginBottom: '16px' }}>
+                              To install Pulpit on your device:
+                            </p>
+                            <ol style={{ color: 'rgba(247,243,233,0.6)', fontSize: '13px', lineHeight: '1.8', paddingLeft: '20px' }}>
+                              <li><strong>iOS Safari:</strong> Tap the Share button, then "Add to Home Screen"</li>
+                              <li><strong>Android Chrome:</strong> Tap the menu (⋮), then "Add to Home screen"</li>
+                              <li><strong>Desktop Chrome:</strong> Click the install icon in the address bar</li>
+                            </ol>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={styles.card}>
+                      <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>DATA & STORAGE</h3>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
+                        <div>
+                          <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>Clear Local Cache</p>
+                          <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Remove temporary files and cached data</p>
+                        </div>
+                        <button style={styles.buttonSecondary}>Clear</button>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0' }}>
+                        <div>
+                          <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>Export Your Data</p>
+                          <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Download all your booking data</p>
+                        </div>
+                        <button style={{ ...styles.buttonSecondary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Download size={14} /> Export
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </>
