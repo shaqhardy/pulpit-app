@@ -192,6 +192,8 @@ export default function PulpitApp() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('book') === '1' || window.location.pathname.includes('/book')) {
       setCurrentView('booking');
+    } else if (params.get('profile') === '1' || window.location.pathname.includes('/profile')) {
+      setCurrentView('publicProfile');
     } else {
       const token = localStorage.getItem('authToken');
       if (token) {
@@ -655,6 +657,167 @@ export default function PulpitApp() {
     );
   };
 
+  // PUBLIC SPEAKER PROFILE PAGE
+  if (currentView === 'publicProfile') {
+    const confirmedEvents = bookingRequests.filter(r => r.status === 'confirmed' || r.status === 'completed');
+    
+    return (
+      <div style={{ minHeight: '100vh', background: '#0A0A0A' }}>
+        {/* Header */}
+        <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 48px', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '28px', letterSpacing: '2px', color: '#F7F3E9' }}>PULPIT</div>
+          <button onClick={() => setCurrentView('booking')} style={styles.button}>
+            BOOK NOW
+          </button>
+        </nav>
+
+        {/* Hero Section */}
+        <section style={{ padding: '80px 48px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
+          {/* Profile Photo */}
+          <div style={{ 
+            width: '180px', 
+            height: '180px', 
+            background: 'linear-gradient(135deg, #535E4A, #3d4638)', 
+            borderRadius: '50%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            margin: '0 auto 32px',
+            fontSize: '64px',
+            fontWeight: '600',
+            color: '#F7F3E9',
+            border: '4px solid rgba(247,243,233,0.1)'
+          }}>
+            S
+          </div>
+          
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '56px', letterSpacing: '3px', marginBottom: '16px', color: '#F7F3E9' }}>
+            SHAQ HARDY
+          </h1>
+          
+          <p style={{ fontSize: '18px', color: '#535E4A', marginBottom: '24px', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
+            SPEAKER • BIBLE TEACHER • YOUTH PASTOR
+          </p>
+          
+          <p style={{ fontSize: '16px', color: 'rgba(247,243,233,0.7)', marginBottom: '48px', lineHeight: '1.8', maxWidth: '700px', margin: '0 auto 48px' }}>
+            Preaching the Word. Teaching the truth. Cultivating faithfulness. With a passion for foster care advocacy and youth discipleship, Shaq brings biblical teaching that transforms hearts and minds.
+          </p>
+
+          <button onClick={() => setCurrentView('booking')} style={{ ...styles.button, padding: '18px 48px', fontSize: '15px' }}>
+            SUBMIT A SPEAKING REQUEST
+          </button>
+        </section>
+
+        {/* Stats Section */}
+        <section style={{ padding: '60px 48px', background: 'rgba(247,243,233,0.02)' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px', textAlign: 'center' }}>
+            <div>
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '48px', color: '#535E4A', marginBottom: '8px' }}>
+                {confirmedEvents.length}+
+              </p>
+              <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Events Completed</p>
+            </div>
+            <div>
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '48px', color: '#535E4A', marginBottom: '8px' }}>
+                10+
+              </p>
+              <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Years Speaking</p>
+            </div>
+            <div>
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '48px', color: '#535E4A', marginBottom: '8px' }}>
+                TN
+              </p>
+              <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Based In</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Speaking Topics */}
+        <section style={{ padding: '80px 48px' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '32px', letterSpacing: '2px', textAlign: 'center', marginBottom: '48px', color: '#F7F3E9' }}>
+              SPEAKING TOPICS
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
+              {[
+                { title: 'Identity in Christ', desc: 'Understanding who you are in Jesus and living from that foundation' },
+                { title: 'Anxiety & Peace', desc: 'Finding rest and trust in God amid life\'s storms' },
+                { title: 'Freedom from Sin', desc: 'Breaking chains and walking in the liberty Christ offers' },
+                { title: 'Foster Care & Orphan Advocacy', desc: 'The church\'s call to care for the vulnerable and fatherless' },
+                { title: 'Youth Discipleship', desc: 'Equipping the next generation to follow Jesus faithfully' },
+                { title: 'Biblical Manhood', desc: 'What it means to be a man after God\'s own heart' },
+              ].map((topic, i) => (
+                <div key={i} style={styles.card}>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', marginBottom: '8px', color: '#F7F3E9' }}>
+                    {topic.title}
+                  </h3>
+                  <p style={{ fontSize: '14px', color: 'rgba(247,243,233,0.6)', lineHeight: '1.6' }}>
+                    {topic.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Event Types */}
+        <section style={{ padding: '80px 48px', background: 'rgba(247,243,233,0.02)' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '32px', letterSpacing: '2px', textAlign: 'center', marginBottom: '48px', color: '#F7F3E9' }}>
+              EVENT TYPES
+            </h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
+              {[
+                'Sunday Services',
+                'Youth Conferences',
+                'Men\'s Retreats',
+                'College Ministry',
+                'Church Revivals',
+                'Leadership Training',
+                'Camps',
+                'Chapel Services',
+                'Workshops',
+              ].map((type, i) => (
+                <span key={i} style={{ 
+                  padding: '12px 24px', 
+                  background: 'rgba(83,94,74,0.15)', 
+                  border: '1px solid rgba(83,94,74,0.3)',
+                  borderRadius: '30px', 
+                  fontSize: '14px', 
+                  color: '#F7F3E9' 
+                }}>
+                  {type}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section style={{ padding: '100px 48px', textAlign: 'center' }}>
+          <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '40px', letterSpacing: '2px', marginBottom: '16px', color: '#F7F3E9' }}>
+              READY TO BOOK?
+            </h2>
+            <p style={{ fontSize: '16px', color: 'rgba(247,243,233,0.6)', marginBottom: '32px', lineHeight: '1.7' }}>
+              Submit a speaking request and let's discuss how I can serve your church or organization.
+            </p>
+            <button onClick={() => setCurrentView('booking')} style={{ ...styles.button, padding: '18px 48px', fontSize: '15px' }}>
+              SUBMIT A REQUEST
+            </button>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer style={{ padding: '32px 48px', borderTop: '1px solid rgba(247,243,233,0.08)', textAlign: 'center' }}>
+          <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.4)' }}>
+            © {new Date().getFullYear()} Shaq Hardy • Powered by Pulpit
+          </p>
+        </footer>
+      </div>
+    );
+  }
+
   // BOOKING FORM PAGE
   if (currentView === 'booking') {
     if (bookingSuccess) {
@@ -1103,6 +1266,18 @@ export default function PulpitApp() {
                     <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}?book=1`)} style={styles.button}>COPY</button>
                   </div>
                   <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)', marginTop: '8px' }}>Share this link with event hosts to receive booking requests</p>
+                </div>
+
+                {/* Profile Link Card */}
+                <div style={{ ...styles.card, marginBottom: '24px' }}>
+                  <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', marginBottom: '12px', color: '#F7F3E9' }}>YOUR PUBLIC PROFILE</h3>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <input type="text" readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}?profile=1`} style={{ ...styles.input, flex: 1, background: 'rgba(247,243,233,0.08)' }} />
+                    <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}?profile=1`)} style={styles.button}>COPY</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                    <button onClick={() => window.open(`${window.location.origin}?profile=1`, '_blank')} style={{ ...styles.buttonSecondary, fontSize: '12px', padding: '8px 16px' }}>Preview Profile →</button>
+                  </div>
                 </div>
 
                 <div style={styles.card}>
