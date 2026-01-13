@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, ChevronDown } from 'lucide-react';
+import { Calendar, MessageSquare, User, FileText, Settings, Bell, Plus, Home, Briefcase, LogOut, FolderOpen, Users, CheckCircle, X, Check, Clock, MapPin, DollarSign, Users as UsersIcon, Mail, Phone, Building, ChevronLeft } from 'lucide-react';
 
 // TWO different API bases in Xano
 const AUTH_API = 'https://x8ki-letl-twmt.n7.xano.io/api:fwui2Env';
@@ -68,6 +68,30 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   },
+  buttonDanger: {
+    background: 'rgba(239,68,68,0.15)',
+    color: '#EF4444',
+    border: '1px solid rgba(239,68,68,0.3)',
+    padding: '12px 24px',
+    borderRadius: '10px',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    fontFamily: "'Bebas Neue', sans-serif",
+    letterSpacing: '1px',
+  },
+  buttonSuccess: {
+    background: '#535E4A',
+    color: '#F7F3E9',
+    border: 'none',
+    padding: '12px 24px',
+    borderRadius: '10px',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    fontFamily: "'Bebas Neue', sans-serif",
+    letterSpacing: '1px',
+  },
   input: {
     width: '100%',
     padding: '14px 16px',
@@ -116,6 +140,10 @@ export default function PulpitApp() {
   const [resources, setResources] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   
+  // Selected request for detail view
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  
   // Form data
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -157,7 +185,6 @@ export default function PulpitApp() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState('');
 
-  // Check URL for booking page on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('book') === '1' || window.location.pathname.includes('/book')) {
@@ -253,6 +280,30 @@ export default function PulpitApp() {
     setCurrentView('landing');
   };
 
+  const handleStatusUpdate = async (requestId, newStatus) => {
+    setUpdatingStatus(true);
+    try {
+      await apiCall(DATA_API, `/booking_request/${requestId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      
+      // Update local state
+      setBookingRequests(prev => prev.map(r => 
+        r.id === requestId ? { ...r, status: newStatus } : r
+      ));
+      
+      // Update selected request if viewing
+      if (selectedRequest && selectedRequest.id === requestId) {
+        setSelectedRequest(prev => ({ ...prev, status: newStatus }));
+      }
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      alert('Failed to update status. Please try again.');
+    }
+    setUpdatingStatus(false);
+  };
+
   const handleBookingChange = (field, value) => {
     setBookingForm(prev => ({ ...prev, [field]: value }));
   };
@@ -334,6 +385,16 @@ export default function PulpitApp() {
     setBookingSubmitting(false);
   };
 
+  // Parse notes JSON safely
+  const parseNotes = (notes) => {
+    if (!notes) return {};
+    try {
+      return typeof notes === 'string' ? JSON.parse(notes) : notes;
+    } catch {
+      return {};
+    }
+  };
+
   const navItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard' },
     { id: 'requests', icon: Briefcase, label: 'Requests' },
@@ -370,6 +431,226 @@ export default function PulpitApp() {
   ];
 
   const attireOptions = ['Casual', 'Business Casual', 'Formal', 'Other'];
+
+  const getStatusBadge = (status) => {
+    const statusStyles = {
+      pending: { background: 'rgba(255,180,0,0.15)', color: '#FFB400' },
+      confirmed: { background: 'rgba(76,175,80,0.15)', color: '#4CAF50' },
+      declined: { background: 'rgba(239,68,68,0.15)', color: '#EF4444' },
+      completed: { background: 'rgba(107,138,229,0.15)', color: '#6B8AE5' },
+    };
+    return statusStyles[status] || { background: 'rgba(247,243,233,0.1)', color: 'rgba(247,243,233,0.5)' };
+  };
+
+  // REQUEST DETAIL VIEW
+  const renderRequestDetail = () => {
+    if (!selectedRequest) return null;
+    
+    const notes = parseNotes(selectedRequest.notes);
+    const contact = notes.contact || {};
+    const churchAddress = notes.churchAddress || {};
+    const eventAddress = notes.eventAddress || {};
+    
+    return (
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, overflow: 'auto' }}>
+        <div style={{ maxWidth: '800px', margin: '40px auto', padding: '0 20px' }}>
+          <div style={{ ...styles.card, background: '#0A0A0A' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '32px' }}>
+              <div>
+                <button onClick={() => setSelectedRequest(null)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                  <ChevronLeft size={18} /> Back to Requests
+                </button>
+                <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '28px', letterSpacing: '2px', color: '#F7F3E9', marginBottom: '8px' }}>
+                  {selectedRequest.event_name}
+                </h1>
+                <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '14px' }}>
+                  {selectedRequest.church_name} • {selectedRequest.location}
+                </p>
+              </div>
+              <span style={{ ...styles.badge, ...getStatusBadge(selectedRequest.status) }}>
+                {selectedRequest.status}
+              </span>
+            </div>
+
+            {/* Action Buttons */}
+            {selectedRequest.status === 'pending' && (
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', padding: '20px', background: 'rgba(247,243,233,0.03)', borderRadius: '12px' }}>
+                <button 
+                  onClick={() => handleStatusUpdate(selectedRequest.id, 'confirmed')} 
+                  disabled={updatingStatus}
+                  style={{ ...styles.buttonSuccess, display: 'flex', alignItems: 'center', gap: '8px', opacity: updatingStatus ? 0.6 : 1 }}
+                >
+                  <Check size={16} /> ACCEPT REQUEST
+                </button>
+                <button 
+                  onClick={() => handleStatusUpdate(selectedRequest.id, 'declined')} 
+                  disabled={updatingStatus}
+                  style={{ ...styles.buttonDanger, display: 'flex', alignItems: 'center', gap: '8px', opacity: updatingStatus ? 0.6 : 1 }}
+                >
+                  <X size={16} /> DECLINE
+                </button>
+              </div>
+            )}
+
+            {selectedRequest.status === 'confirmed' && (
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', padding: '20px', background: 'rgba(76,175,80,0.1)', borderRadius: '12px', border: '1px solid rgba(76,175,80,0.2)' }}>
+                <CheckCircle size={20} color="#4CAF50" />
+                <div>
+                  <p style={{ color: '#4CAF50', fontWeight: '600', marginBottom: '4px' }}>Request Confirmed</p>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px' }}>You've accepted this speaking engagement</p>
+                </div>
+                <button 
+                  onClick={() => handleStatusUpdate(selectedRequest.id, 'completed')} 
+                  disabled={updatingStatus}
+                  style={{ ...styles.buttonSecondary, marginLeft: 'auto' }}
+                >
+                  Mark Complete
+                </button>
+              </div>
+            )}
+
+            {/* Contact Information */}
+            <div style={{ marginBottom: '32px' }}>
+              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>CONTACT INFORMATION</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <User size={18} color="rgba(247,243,233,0.5)" />
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Name</p>
+                    <p style={{ color: '#F7F3E9' }}>{contact.firstName} {contact.lastName}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <Mail size={18} color="rgba(247,243,233,0.5)" />
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Email</p>
+                    <p style={{ color: '#F7F3E9' }}>{contact.email || 'Not provided'}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <Phone size={18} color="rgba(247,243,233,0.5)" />
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Phone</p>
+                    <p style={{ color: '#F7F3E9' }}>{contact.phone || 'Not provided'}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <Building size={18} color="rgba(247,243,233,0.5)" />
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Organization</p>
+                    <p style={{ color: '#F7F3E9' }}>{selectedRequest.church_name}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Event Details */}
+            <div style={{ marginBottom: '32px' }}>
+              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>EVENT DETAILS</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <Calendar size={18} color="rgba(247,243,233,0.5)" />
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Event Date</p>
+                    <p style={{ color: '#F7F3E9' }}>{selectedRequest.event_date}{notes.eventEndDate ? ` - ${notes.eventEndDate}` : ''}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <MapPin size={18} color="rgba(247,243,233,0.5)" />
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Location</p>
+                    <p style={{ color: '#F7F3E9' }}>{eventAddress.address ? `${eventAddress.address}, ` : ''}{selectedRequest.location}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <UsersIcon size={18} color="rgba(247,243,233,0.5)" />
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Expected Attendance</p>
+                    <p style={{ color: '#F7F3E9' }}>{selectedRequest.attendance || 'Not specified'}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <DollarSign size={18} color="rgba(247,243,233,0.5)" />
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)' }}>Honorarium</p>
+                    <p style={{ color: '#F7F3E9' }}>${selectedRequest.honorarium || '0'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Audience */}
+            {notes.audience && notes.audience.length > 0 && (
+              <div style={{ marginBottom: '32px' }}>
+                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>AUDIENCE</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {notes.audience.map((a, i) => (
+                    <span key={i} style={{ padding: '8px 16px', background: 'rgba(83,94,74,0.2)', borderRadius: '20px', fontSize: '13px', color: '#F7F3E9' }}>{a}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Logistics */}
+            <div style={{ marginBottom: '32px' }}>
+              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>LOGISTICS</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                <div style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)', marginBottom: '4px' }}>Attire</p>
+                  <p style={{ color: '#F7F3E9', textTransform: 'capitalize' }}>{selectedRequest.attire || 'Not specified'}</p>
+                </div>
+                <div style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)', marginBottom: '4px' }}>Merch Allowed</p>
+                  <p style={{ color: '#F7F3E9' }}>{selectedRequest.merch_allowed ? 'Yes' : 'No'}</p>
+                </div>
+                <div style={{ padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>
+                  <p style={{ fontSize: '12px', color: 'rgba(247,243,233,0.4)', marginBottom: '4px' }}>Sunday Required</p>
+                  <p style={{ color: '#F7F3E9', textTransform: 'capitalize' }}>{notes.sundayRequired || 'Not specified'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Expenses */}
+            {notes.expensesCovered && notes.expensesCovered.length > 0 && (
+              <div style={{ marginBottom: '32px' }}>
+                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>EXPENSES COVERED</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {notes.expensesCovered.map((e, i) => (
+                    <span key={i} style={{ padding: '8px 16px', background: 'rgba(76,175,80,0.15)', borderRadius: '20px', fontSize: '13px', color: '#4CAF50' }}>✓ {e}</span>
+                  ))}
+                </div>
+                {notes.expensesEmail && (
+                  <p style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>Send expenses to: {notes.expensesEmail}</p>
+                )}
+              </div>
+            )}
+
+            {/* Previous Events */}
+            {notes.previousEvents && (
+              <div style={{ marginBottom: '32px' }}>
+                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>PREVIOUS EVENTS WITH YOU</h3>
+                <p style={{ color: 'rgba(247,243,233,0.7)', lineHeight: '1.6', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>{notes.previousEvents}</p>
+              </div>
+            )}
+
+            {/* Additional Comments */}
+            {notes.additionalComments && (
+              <div style={{ marginBottom: '32px' }}>
+                <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '16px' }}>ADDITIONAL COMMENTS</h3>
+                <p style={{ color: 'rgba(247,243,233,0.7)', lineHeight: '1.6', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px' }}>{notes.additionalComments}</p>
+              </div>
+            )}
+
+            {/* Close Button */}
+            <button onClick={() => setSelectedRequest(null)} style={{ ...styles.buttonSecondary, width: '100%' }}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // BOOKING FORM PAGE
   if (currentView === 'booking') {
@@ -740,6 +1021,9 @@ export default function PulpitApp() {
   // MAIN APP
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0A0A0A' }}>
+      {/* Request Detail Modal */}
+      {selectedRequest && renderRequestDetail()}
+
       {/* Sidebar */}
       <div style={{ width: '240px', background: 'rgba(247,243,233,0.02)', borderRight: '1px solid rgba(247,243,233,0.08)', padding: '24px 16px', display: 'flex', flexDirection: 'column' }}>
         <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '24px', letterSpacing: '2px', marginBottom: '32px', paddingLeft: '12px', color: '#F7F3E9' }}>PULPIT</div>
@@ -828,12 +1112,18 @@ export default function PulpitApp() {
                     <p style={{ color: 'rgba(247,243,233,0.5)', textAlign: 'center', padding: '32px' }}>No booking requests yet</p>
                   ) : (
                     bookingRequests.slice(0, 5).map((request, index) => (
-                      <div key={request.id || index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px' }}>
+                      <div 
+                        key={request.id || index} 
+                        onClick={() => setSelectedRequest(request)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', transition: 'background 0.2s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(247,243,233,0.06)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(247,243,233,0.03)'}
+                      >
                         <div>
                           <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px', color: '#F7F3E9' }}>{request.event_name}</p>
                           <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>{request.church_name} • {request.location}</p>
                         </div>
-                        <span style={{ ...styles.badge, background: request.status === 'pending' ? 'rgba(255,180,0,0.15)' : request.status === 'confirmed' ? 'rgba(76,175,80,0.15)' : 'rgba(247,243,233,0.1)', color: request.status === 'pending' ? '#FFB400' : request.status === 'confirmed' ? '#4CAF50' : 'rgba(247,243,233,0.5)' }}>
+                        <span style={{ ...styles.badge, ...getStatusBadge(request.status) }}>
                           {request.status}
                         </span>
                       </div>
@@ -853,7 +1143,13 @@ export default function PulpitApp() {
                   </div>
                 ) : (
                   bookingRequests.map((request, index) => (
-                    <div key={request.id || index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px' }}>
+                    <div 
+                      key={request.id || index} 
+                      onClick={() => setSelectedRequest(request)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', transition: 'background 0.2s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(247,243,233,0.06)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(247,243,233,0.03)'}
+                    >
                       <div style={{ flex: 1 }}>
                         <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px', color: '#F7F3E9' }}>{request.event_name}</p>
                         <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)', marginBottom: '4px' }}>{request.church_name} • {request.location}</p>
@@ -861,7 +1157,7 @@ export default function PulpitApp() {
                           {request.event_date} • {request.attendance} expected • ${request.honorarium}
                         </p>
                       </div>
-                      <span style={{ ...styles.badge, background: request.status === 'pending' ? 'rgba(255,180,0,0.15)' : request.status === 'confirmed' ? 'rgba(76,175,80,0.15)' : 'rgba(247,243,233,0.1)', color: request.status === 'pending' ? '#FFB400' : request.status === 'confirmed' ? '#4CAF50' : 'rgba(247,243,233,0.5)' }}>
+                      <span style={{ ...styles.badge, ...getStatusBadge(request.status) }}>
                         {request.status}
                       </span>
                     </div>
