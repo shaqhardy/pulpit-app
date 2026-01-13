@@ -2460,6 +2460,7 @@ export default function PulpitApp() {
             )}
 
             {activeTab === 'profile' && (
+              <>
               <div style={styles.card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9' }}>YOUR PROFILE</h3>
@@ -2650,6 +2651,7 @@ export default function PulpitApp() {
                   </div>
                 )}
               </div>
+              </>
             )}
 
             {activeTab === 'calendar' && (() => {
