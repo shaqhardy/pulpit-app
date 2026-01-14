@@ -3,8 +3,6 @@
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
-const DATA_API = 'https://xjbw-ute3-kf0i.n7d.xano.io/api:gCildNvr';
-
 export default function PublicProfile() {
   const params = useParams();
   const username = params.username;
@@ -17,26 +15,27 @@ export default function PublicProfile() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        // Fetch all users and find by name/slug
-        const response = await fetch(`${DATA_API}/user`);
+        // Fetch all users from internal API (avoids CORS)
+        const response = await fetch('/api/users');
         const users = await response.json();
         
         // Find user by matching name (convert to slug format)
-        const foundUser = users.find(u => {
+        const foundUser = Array.isArray(users) ? users.find(u => {
           const slug = u.name?.toLowerCase().replace(/\s+/g, '-');
           return slug === username.toLowerCase();
-        });
+        }) : null;
         
         if (foundUser) {
           setUser(foundUser);
-          // Fetch sermons for this user
-          const sermonsResponse = await fetch(`${DATA_API}/sermon`);
+          // Fetch sermons from internal API
+          const sermonsResponse = await fetch('/api/sermons');
           const allSermons = await sermonsResponse.json();
-          setSermons(allSermons.filter(s => s.user_id === foundUser.id));
+          setSermons(Array.isArray(allSermons) ? allSermons.filter(s => s.user_id === foundUser.id) : []);
         } else {
           setError('Profile not found');
         }
       } catch (err) {
+        console.error('Error loading profile:', err);
         setError('Failed to load profile');
       }
       setLoading(false);
