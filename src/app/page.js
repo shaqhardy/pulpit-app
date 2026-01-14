@@ -167,9 +167,12 @@ export default function PulpitApp() {
   // Manual Event Creation state
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [addingEvent, setAddingEvent] = useState(false);
+  const [eventAttachments, setEventAttachments] = useState([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [newEventForm, setNewEventForm] = useState({
     event_name: '',
     event_date: '',
+    event_end_date: '',
     event_time: '',
     end_time: '',
     church_name: '',
@@ -489,6 +492,24 @@ export default function PulpitApp() {
         body: JSON.stringify(eventData),
       });
       
+      // If there are attachments, save them linked to this event
+      if (eventAttachments.length > 0) {
+        for (const attachment of eventAttachments) {
+          await apiCall(DATA_API, '/document', {
+            method: 'POST',
+            body: JSON.stringify({
+              name: attachment.name,
+              document_type: attachment.type || 'attachment',
+              booking_request_id: response.id,
+              uploaded_by_user_id: currentUser.id,
+              status: 'uploaded',
+              file_url: attachment.url,
+              file_size: attachment.size,
+            }),
+          });
+        }
+      }
+      
       // Add to local state
       setBookingRequests(prev => [...prev, response]);
       
@@ -496,6 +517,7 @@ export default function PulpitApp() {
       setNewEventForm({
         event_name: '',
         event_date: '',
+        event_end_date: '',
         event_time: '',
         end_time: '',
         church_name: '',
@@ -509,12 +531,41 @@ export default function PulpitApp() {
         notes: '',
         status: 'confirmed',
       });
+      setEventAttachments([]);
       setShowAddEvent(false);
     } catch (error) {
       console.error('Failed to add event:', error);
       alert('Failed to add event. Please try again.');
     }
     setAddingEvent(false);
+  };
+
+  // Handle file attachment for events
+  const handleEventFileAttachment = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setUploadingAttachment(true);
+    try {
+      // Create a local URL for preview (in production, you'd upload to Xano/cloud storage)
+      const fileData = {
+        name: file.name,
+        size: file.size,
+        type: file.type.includes('pdf') ? 'itinerary' : file.type.includes('image') ? 'image' : 'document',
+        url: URL.createObjectURL(file),
+        file: file,
+      };
+      setEventAttachments(prev => [...prev, fileData]);
+    } catch (error) {
+      console.error('Failed to attach file:', error);
+      alert('Failed to attach file. Please try again.');
+    }
+    setUploadingAttachment(false);
+    e.target.value = '';
+  };
+
+  const removeEventAttachment = (index) => {
+    setEventAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   // Messaging functions
@@ -2736,11 +2787,25 @@ export default function PulpitApp() {
               const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
               const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
               
-              // Get events for this month
+              // Get events for this month (including multi-day events)
               const getEventsForDate = (day) => {
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const checkDate = new Date(year, month, day);
+                
                 return bookingRequests.filter(r => {
                   if (!r.event_date) return false;
+                  
+                  const startDate = new Date(r.event_date);
+                  startDate.setHours(0, 0, 0, 0);
+                  
+                  // If there's an end date, check if current date falls within range
+                  if (r.event_end_date) {
+                    const endDate = new Date(r.event_end_date);
+                    endDate.setHours(23, 59, 59, 999);
+                    return checkDate >= startDate && checkDate <= endDate;
+                  }
+                  
+                  // Single day event
                   return r.event_date.startsWith(dateStr);
                 });
               };
@@ -2834,26 +2899,31 @@ export default function PulpitApp() {
                               {day}
                             </div>
                             
-                            {events.slice(0, 2).map((event, i) => (
-                              <div 
-                                key={event.id || i}
-                                onClick={() => setSelectedRequest(event)}
-                                style={{ 
-                                  fontSize: '11px',
-                                  padding: '4px 6px',
-                                  marginBottom: '4px',
-                                  borderRadius: '4px',
-                                  cursor: 'pointer',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  background: event.status === 'confirmed' ? 'rgba(76,175,80,0.2)' : event.status === 'pending' ? 'rgba(255,180,0,0.2)' : 'rgba(247,243,233,0.1)',
-                                  color: event.status === 'confirmed' ? '#4CAF50' : event.status === 'pending' ? '#FFB400' : 'rgba(247,243,233,0.5)',
-                                }}
-                              >
-                                {event.event_name || event.church_name}
-                              </div>
-                            ))}
+                            {events.slice(0, 2).map((event, i) => {
+                              const isMultiDay = event.event_end_date && event.event_end_date !== event.event_date;
+                              return (
+                                <div 
+                                  key={event.id || i}
+                                  onClick={() => setSelectedRequest(event)}
+                                  style={{ 
+                                    fontSize: '11px',
+                                    padding: '4px 6px',
+                                    marginBottom: '4px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    background: event.status === 'confirmed' ? 'rgba(76,175,80,0.2)' : event.status === 'pending' ? 'rgba(255,180,0,0.2)' : 'rgba(247,243,233,0.1)',
+                                    color: event.status === 'confirmed' ? '#4CAF50' : event.status === 'pending' ? '#FFB400' : 'rgba(247,243,233,0.5)',
+                                    borderLeft: isMultiDay ? '2px solid' : 'none',
+                                    borderColor: event.status === 'confirmed' ? '#4CAF50' : event.status === 'pending' ? '#FFB400' : 'rgba(247,243,233,0.3)',
+                                  }}
+                                >
+                                  {event.event_name || event.church_name}
+                                </div>
+                              );
+                            })}
                             
                             {events.length > 2 && (
                               <div style={{ fontSize: '10px', color: 'rgba(247,243,233,0.4)' }}>
@@ -2867,7 +2937,7 @@ export default function PulpitApp() {
                   </div>
 
                   {/* Legend */}
-                  <div style={{ display: 'flex', gap: '24px', marginTop: '16px', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', gap: '24px', marginTop: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(76,175,80,0.3)' }} />
                       <span style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Confirmed</span>
@@ -2875,6 +2945,10 @@ export default function PulpitApp() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(255,180,0,0.3)' }} />
                       <span style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Pending</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(247,243,233,0.1)', borderLeft: '2px solid rgba(247,243,233,0.5)' }} />
+                      <span style={{ fontSize: '12px', color: 'rgba(247,243,233,0.5)' }}>Multi-day</span>
                     </div>
                   </div>
                 </div>
@@ -3687,7 +3761,7 @@ export default function PulpitApp() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                   <div>
-                    <label style={styles.label}>Date *</label>
+                    <label style={styles.label}>Start Date *</label>
                     <input 
                       type="date" 
                       value={newEventForm.event_date} 
@@ -3696,13 +3770,25 @@ export default function PulpitApp() {
                     />
                   </div>
                   <div>
-                    <label style={styles.label}>Event Type</label>
-                    <select 
-                      value={newEventForm.event_type} 
-                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_type: e.target.value }))} 
+                    <label style={styles.label}>End Date <span style={{ color: 'rgba(247,243,233,0.4)', fontWeight: '400' }}>(for multi-day)</span></label>
+                    <input 
+                      type="date" 
+                      value={newEventForm.event_end_date} 
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_end_date: e.target.value }))} 
                       style={styles.input}
-                    >
-                      <option value="">Select type...</option>
+                      min={newEventForm.event_date}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Type</label>
+                  <select 
+                    value={newEventForm.event_type} 
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, event_type: e.target.value }))} 
+                    style={styles.input}
+                  >
+                    <option value="">Select type...</option>
                       <option value="sunday_service">Sunday Service</option>
                       <option value="conference">Conference</option>
                       <option value="youth_event">Youth Event</option>
@@ -3834,6 +3920,68 @@ export default function PulpitApp() {
                   style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} 
                   placeholder="Any additional details about this event..." 
                 />
+              </div>
+
+              {/* File Attachments */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Attachments</h4>
+                
+                {/* Attached Files List */}
+                {eventAttachments.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    {eventAttachments.map((file, index) => (
+                      <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(247,243,233,0.03)', borderRadius: '8px', marginBottom: '8px', border: '1px solid rgba(247,243,233,0.08)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ width: '36px', height: '36px', background: file.type === 'itinerary' ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.05)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {file.type === 'itinerary' ? <FileCheck size={18} color="#535E4A" /> : <FileText size={18} color="rgba(247,243,233,0.5)" />}
+                          </div>
+                          <div>
+                            <p style={{ color: '#F7F3E9', fontSize: '14px', marginBottom: '2px' }}>{file.name}</p>
+                            <p style={{ color: 'rgba(247,243,233,0.4)', fontSize: '11px' }}>
+                              {file.type === 'itinerary' ? 'Itinerary' : file.type === 'image' ? 'Image' : 'Document'} • {(file.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => removeEventAttachment(index)}
+                          style={{ background: 'transparent', border: 'none', color: 'rgba(239,68,68,0.7)', cursor: 'pointer', padding: '8px' }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Upload Button */}
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: '10px', 
+                  padding: '16px 20px', 
+                  background: 'rgba(247,243,233,0.03)', 
+                  border: '1px dashed rgba(247,243,233,0.2)', 
+                  borderRadius: '10px', 
+                  cursor: uploadingAttachment ? 'not-allowed' : 'pointer', 
+                  color: 'rgba(247,243,233,0.6)', 
+                  fontSize: '13px',
+                  transition: 'all 0.2s',
+                  opacity: uploadingAttachment ? 0.5 : 1,
+                }}>
+                  <Upload size={18} />
+                  {uploadingAttachment ? 'Uploading...' : 'Attach files (PDFs, contracts, itineraries)'}
+                  <input
+                    type="file"
+                    style={{ display: 'none' }}
+                    onChange={handleEventFileAttachment}
+                    disabled={uploadingAttachment}
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                  />
+                </label>
+                <p style={{ color: 'rgba(247,243,233,0.3)', fontSize: '11px', marginTop: '8px', textAlign: 'center' }}>
+                  PDF, DOC, DOCX, PNG, JPG accepted
+                </p>
               </div>
 
               {/* Status */}
