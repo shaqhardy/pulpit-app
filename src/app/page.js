@@ -365,8 +365,14 @@ export default function PulpitApp() {
 
   const loadUserData = async () => {
     try {
-      const user = await apiCall(AUTH_API, '/auth/me');
-      setCurrentUser(user);
+      const authUser = await apiCall(AUTH_API, '/auth/me');
+      // Fetch full user profile from data API to get all fields including social media
+      try {
+        const fullUser = await apiCall(DATA_API, `/user/${authUser.id}`);
+        setCurrentUser({ ...authUser, ...fullUser });
+      } catch {
+        setCurrentUser(authUser);
+      }
       setIsAuthenticated(true);
       setCurrentView('app');
       loadAllData();
@@ -2473,7 +2479,7 @@ export default function PulpitApp() {
                       <button onClick={handleSaveProfile} disabled={savingProfile} style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', opacity: savingProfile ? 0.6 : 1 }}>
                         <Save size={14} /> {savingProfile ? 'Saving...' : 'Save'}
                       </button>
-                      <button onClick={() => { setEditingProfile(false); setProfileForm({ name: currentUser?.name || '', tagline: currentUser?.tagline || '', bio: currentUser?.bio || '', location: currentUser?.location || '', year_started: currentUser?.year_started || '' }); }} style={{ ...styles.buttonSecondary, padding: '10px 16px' }}>
+                      <button onClick={() => { setEditingProfile(false); setProfileForm({ name: currentUser?.name || '', tagline: currentUser?.tagline || '', bio: currentUser?.bio || '', location: currentUser?.location || '', year_started: currentUser?.year_started || '', youtube: currentUser?.youtube || '', instagram: currentUser?.instagram || '', twitter: currentUser?.twitter || '', facebook: currentUser?.facebook || '', linkedin: currentUser?.linkedin || '', website: currentUser?.website || '' }); }} style={{ ...styles.buttonSecondary, padding: '10px 16px' }}>
                         Cancel
                       </button>
                     </div>
