@@ -164,6 +164,26 @@ export default function PulpitApp() {
   // Calendar state
   const [calendarDate, setCalendarDate] = useState(new Date());
   
+  // Manual Event Creation state
+  const [showAddEvent, setShowAddEvent] = useState(false);
+  const [addingEvent, setAddingEvent] = useState(false);
+  const [newEventForm, setNewEventForm] = useState({
+    event_name: '',
+    event_date: '',
+    event_time: '',
+    end_time: '',
+    church_name: '',
+    venue_address: '',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    event_type: '',
+    expected_attendance: '',
+    honorarium: '',
+    notes: '',
+    status: 'confirmed',
+  });
+  
   // Mobile state
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -447,6 +467,54 @@ export default function PulpitApp() {
       alert('Failed to save profile. Please try again.');
     }
     setSavingProfile(false);
+  };
+
+  // Manual Event Creation
+  const handleAddManualEvent = async () => {
+    if (!newEventForm.event_name || !newEventForm.event_date) {
+      alert('Please enter at least an event name and date.');
+      return;
+    }
+    setAddingEvent(true);
+    try {
+      const eventData = {
+        ...newEventForm,
+        speaker_user_id: currentUser.id,
+        is_manual: true,
+        created_at: new Date().toISOString(),
+      };
+      
+      const response = await apiCall(DATA_API, '/booking_request', {
+        method: 'POST',
+        body: JSON.stringify(eventData),
+      });
+      
+      // Add to local state
+      setBookingRequests(prev => [...prev, response]);
+      
+      // Reset form and close modal
+      setNewEventForm({
+        event_name: '',
+        event_date: '',
+        event_time: '',
+        end_time: '',
+        church_name: '',
+        venue_address: '',
+        contact_name: '',
+        contact_email: '',
+        contact_phone: '',
+        event_type: '',
+        expected_attendance: '',
+        honorarium: '',
+        notes: '',
+        status: 'confirmed',
+      });
+      setShowAddEvent(false);
+    } catch (error) {
+      console.error('Failed to add event:', error);
+      alert('Failed to add event. Please try again.');
+    }
+    setAddingEvent(false);
   };
 
   // Messaging functions
@@ -2696,6 +2764,15 @@ export default function PulpitApp() {
                 <div>
                   {/* Calendar Header */}
                   <div style={{ ...styles.card, marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9' }}>YOUR CALENDAR</h3>
+                      <button 
+                        onClick={() => setShowAddEvent(true)}
+                        style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
+                      >
+                        <Plus size={16} /> ADD EVENT
+                      </button>
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <button 
                         onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
@@ -3580,6 +3657,242 @@ export default function PulpitApp() {
               </div>
             )}
           </>
+        )}
+
+        {/* Add Event Modal */}
+        {showAddEvent && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
+            <div style={{ ...styles.card, background: '#0A0A0A', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '20px', letterSpacing: '1px', color: '#F7F3E9' }}>ADD EVENT</h2>
+                <button onClick={() => setShowAddEvent(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Event Details */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Event Details</h4>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Name *</label>
+                  <input 
+                    type="text" 
+                    value={newEventForm.event_name} 
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, event_name: e.target.value }))} 
+                    style={styles.input} 
+                    placeholder="Youth Conference 2026" 
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Date *</label>
+                    <input 
+                      type="date" 
+                      value={newEventForm.event_date} 
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_date: e.target.value }))} 
+                      style={styles.input} 
+                    />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Event Type</label>
+                    <select 
+                      value={newEventForm.event_type} 
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_type: e.target.value }))} 
+                      style={styles.input}
+                    >
+                      <option value="">Select type...</option>
+                      <option value="sunday_service">Sunday Service</option>
+                      <option value="conference">Conference</option>
+                      <option value="youth_event">Youth Event</option>
+                      <option value="revival">Revival</option>
+                      <option value="workshop">Workshop</option>
+                      <option value="retreat">Retreat</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Start Time</label>
+                    <input 
+                      type="time" 
+                      value={newEventForm.event_time} 
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_time: e.target.value }))} 
+                      style={styles.input} 
+                    />
+                  </div>
+                  <div>
+                    <label style={styles.label}>End Time</label>
+                    <input 
+                      type="time" 
+                      value={newEventForm.end_time} 
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, end_time: e.target.value }))} 
+                      style={styles.input} 
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Church / Organization</label>
+                  <input 
+                    type="text" 
+                    value={newEventForm.church_name} 
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, church_name: e.target.value }))} 
+                    style={styles.input} 
+                    placeholder="CityPoint Church" 
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Venue Address</label>
+                  <input 
+                    type="text" 
+                    value={newEventForm.venue_address} 
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, venue_address: e.target.value }))} 
+                    style={styles.input} 
+                    placeholder="123 Main Street, Dallas, TX 75201" 
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Expected Attendance</label>
+                  <input 
+                    type="text" 
+                    value={newEventForm.expected_attendance} 
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, expected_attendance: e.target.value }))} 
+                    style={styles.input} 
+                    placeholder="200" 
+                  />
+                </div>
+              </div>
+
+              {/* Contact Info */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Contact Info</h4>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Contact Name</label>
+                  <input 
+                    type="text" 
+                    value={newEventForm.contact_name} 
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, contact_name: e.target.value }))} 
+                    style={styles.input} 
+                    placeholder="Marcus Johnson" 
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Email</label>
+                    <input 
+                      type="email" 
+                      value={newEventForm.contact_email} 
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, contact_email: e.target.value }))} 
+                      style={styles.input} 
+                      placeholder="marcus@church.org" 
+                    />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Phone</label>
+                    <input 
+                      type="tel" 
+                      value={newEventForm.contact_phone} 
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, contact_phone: e.target.value }))} 
+                      style={styles.input} 
+                      placeholder="(214) 555-0142" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Compensation */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Compensation</h4>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Honorarium</label>
+                  <input 
+                    type="text" 
+                    value={newEventForm.honorarium} 
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, honorarium: e.target.value }))} 
+                    style={styles.input} 
+                    placeholder="$1,500" 
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Notes</h4>
+                
+                <textarea 
+                  value={newEventForm.notes} 
+                  onChange={(e) => setNewEventForm(prev => ({ ...prev, notes: e.target.value }))} 
+                  style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} 
+                  placeholder="Any additional details about this event..." 
+                />
+              </div>
+
+              {/* Status */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={styles.label}>Status</label>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {['confirmed', 'pending', 'tentative'].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setNewEventForm(prev => ({ ...prev, status }))}
+                      style={{
+                        padding: '10px 20px',
+                        borderRadius: '8px',
+                        border: newEventForm.status === status ? '1px solid' : '1px solid rgba(247,243,233,0.15)',
+                        background: newEventForm.status === status 
+                          ? status === 'confirmed' ? 'rgba(76,175,80,0.2)' 
+                          : status === 'pending' ? 'rgba(255,180,0,0.2)' 
+                          : 'rgba(247,243,233,0.1)'
+                          : 'transparent',
+                        borderColor: newEventForm.status === status 
+                          ? status === 'confirmed' ? 'rgba(76,175,80,0.5)' 
+                          : status === 'pending' ? 'rgba(255,180,0,0.5)' 
+                          : 'rgba(247,243,233,0.3)'
+                          : 'rgba(247,243,233,0.15)',
+                        color: newEventForm.status === status 
+                          ? status === 'confirmed' ? '#4CAF50' 
+                          : status === 'pending' ? '#FFB400' 
+                          : '#F7F3E9'
+                          : 'rgba(247,243,233,0.5)',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: '500',
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button 
+                  onClick={() => setShowAddEvent(false)} 
+                  style={{ ...styles.buttonSecondary, flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleAddManualEvent} 
+                  disabled={addingEvent || !newEventForm.event_name || !newEventForm.event_date} 
+                  style={{ ...styles.button, flex: 1, opacity: addingEvent || !newEventForm.event_name || !newEventForm.event_date ? 0.5 : 1 }}
+                >
+                  {addingEvent ? 'ADDING...' : 'ADD EVENT'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
