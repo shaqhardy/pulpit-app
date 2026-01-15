@@ -454,17 +454,28 @@ export default function PulpitApp() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('book') === '1' || window.location.pathname.includes('/book')) {
+    const path = window.location.pathname;
+
+    if (params.get('book') === '1' || path.includes('/book')) {
       setCurrentView('booking');
       loadPublicSpeakerData();
-    } else if (params.get('profile') === '1' || window.location.pathname.includes('/profile')) {
+      return;
+    }
+
+    if (params.get('profile') === '1' || path.includes('/profile')) {
       setCurrentView('publicProfile');
       loadPublicSpeakerData();
-    } else {
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        loadUserData();
-      }
+      return;
+    }
+
+    if (path.includes('/login') || path.includes('/signup') || path.includes('/auth')) {
+      setCurrentView('auth');
+      return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      loadUserData();
     }
   }, []);
 
@@ -695,7 +706,10 @@ export default function PulpitApp() {
       // Update user profile with new image
       await apiCall(DATA_API, `/user/${currentUser.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ profile_photo: imageUrl }),
+        body: JSON.stringify({
+          profile_photo: imageUrl,
+          name: currentUser.name  // Xano requires name field
+        }),
       });
 
       setCurrentUser(prev => ({ ...prev, profile_photo: imageUrl }));
