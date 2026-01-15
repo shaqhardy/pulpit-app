@@ -1,3 +1,4 @@
+// TEMP: branch created to fix routing + upload issues (Claude Code)
 'use client';
 
 import { useState, useEffect } from 'react';
