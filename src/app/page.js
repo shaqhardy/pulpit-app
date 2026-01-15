@@ -50,6 +50,27 @@ const apiCall = async (baseUrl, endpoint, options = {}) => {
   return response.json();
 };
 
+// File upload function for Xano
+const uploadFile = async (file, endpoint = '/upload/attachment') => {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch(`${DATA_API}${endpoint}`, {
+    method: 'POST',
+    headers: {
+      ...(token && { Authorization: `Bearer ${token}` }),
+    },
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    throw new Error('File upload failed');
+  }
+  
+  return response.json();
+};
+
 // Styles
 const styles = {
   card: {
@@ -136,6 +157,21 @@ const styles = {
   },
 };
 
+// Global CSS for animations
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = `
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  `;
+  if (!document.querySelector('[data-pulpit-styles]')) {
+    styleSheet.setAttribute('data-pulpit-styles', 'true');
+    document.head.appendChild(styleSheet);
+  }
+}
+
 export default function PulpitApp() {
   const [currentView, setCurrentView] = useState('landing');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -176,7 +212,6 @@ export default function PulpitApp() {
     event_time: '',
     end_time: '',
     church_name: '',
-    venue_address: '',
     contact_name: '',
     contact_email: '',
     contact_phone: '',
@@ -185,6 +220,51 @@ export default function PulpitApp() {
     honorarium: '',
     notes: '',
     status: 'confirmed',
+  });
+  
+  // Profile Picture state
+  const [uploadingProfilePic, setUploadingProfilePic] = useState(false);
+  
+  // Speaking Request Form state
+  const [showSpeakingRequestForm, setShowSpeakingRequestForm] = useState(false);
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+  const [speakingRequestForm, setSpeakingRequestForm] = useState({
+    // Contact Info
+    church_name: '',
+    contact_first_name: '',
+    contact_last_name: '',
+    contact_email: '',
+    contact_phone: '',
+    // Church Address
+    church_street: '',
+    church_street2: '',
+    church_city: '',
+    church_state: '',
+    church_zip: '',
+    // Event Venue Address
+    venue_street: '',
+    venue_street2: '',
+    venue_city: '',
+    venue_state: '',
+    venue_zip: '',
+    // Event Details
+    event_date: '',
+    event_end_date: '',
+    sunday_requirement: '',
+    worked_with_before: '',
+    previous_event_details: '',
+    event_theme: '',
+    event_audience: [],
+    expected_attendance: '',
+    merch_allowed: '',
+    event_attire: '',
+    honorarium: '',
+    // Expenses
+    expenses_covered: [],
+    expense_contact_first: '',
+    expense_contact_last: '',
+    expense_email: '',
+    additional_comments: '',
   });
   
   // Mobile state
@@ -521,7 +601,6 @@ export default function PulpitApp() {
         event_time: '',
         end_time: '',
         church_name: '',
-        venue_address: '',
         contact_name: '',
         contact_email: '',
         contact_phone: '',
@@ -540,25 +619,26 @@ export default function PulpitApp() {
     setAddingEvent(false);
   };
 
-  // Handle file attachment for events
+  // Handle file attachment for events (uploads to Xano)
   const handleEventFileAttachment = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
     setUploadingAttachment(true);
     try {
-      // Create a local URL for preview (in production, you'd upload to Xano/cloud storage)
+      // Upload to Xano
+      const uploadResult = await uploadFile(file);
       const fileData = {
         name: file.name,
         size: file.size,
         type: file.type.includes('pdf') ? 'itinerary' : file.type.includes('image') ? 'image' : 'document',
-        url: URL.createObjectURL(file),
-        file: file,
+        url: uploadResult.path || uploadResult.url || uploadResult.file?.url,
+        file: uploadResult,
       };
       setEventAttachments(prev => [...prev, fileData]);
     } catch (error) {
       console.error('Failed to attach file:', error);
-      alert('Failed to attach file. Please try again.');
+      alert('Failed to upload file. Please try again.');
     }
     setUploadingAttachment(false);
     e.target.value = '';
@@ -566,6 +646,124 @@ export default function PulpitApp() {
 
   const removeEventAttachment = (index) => {
     setEventAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Profile Picture Upload
+  const handleProfilePictureUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setUploadingProfilePic(true);
+    try {
+      const uploadResult = await uploadFile(file, '/upload/image');
+      const imageUrl = uploadResult.path || uploadResult.url || uploadResult.file?.url;
+      
+      // Update user profile with new image
+      await apiCall(DATA_API, `/user/${currentUser.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ profile_photo: imageUrl }),
+      });
+      
+      setCurrentUser(prev => ({ ...prev, profile_photo: imageUrl }));
+    } catch (error) {
+      console.error('Failed to upload profile picture:', error);
+      alert('Failed to upload profile picture. Please try again.');
+    }
+    setUploadingProfilePic(false);
+    e.target.value = '';
+  };
+
+  // Speaking Request Form Submit
+  const handleSubmitSpeakingRequest = async () => {
+    // Validate required fields
+    if (!speakingRequestForm.church_name || !speakingRequestForm.contact_email || !speakingRequestForm.event_date) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+    
+    setSubmittingRequest(true);
+    try {
+      const requestData = {
+        // Map form fields to booking_request table
+        church_name: speakingRequestForm.church_name,
+        contact_name: `${speakingRequestForm.contact_first_name} ${speakingRequestForm.contact_last_name}`,
+        contact_email: speakingRequestForm.contact_email,
+        contact_phone: speakingRequestForm.contact_phone,
+        location: `${speakingRequestForm.church_street}, ${speakingRequestForm.church_city}, ${speakingRequestForm.church_state} ${speakingRequestForm.church_zip}`,
+        venue_address: `${speakingRequestForm.venue_street}, ${speakingRequestForm.venue_city}, ${speakingRequestForm.venue_state} ${speakingRequestForm.venue_zip}`,
+        event_date: speakingRequestForm.event_date,
+        event_end_date: speakingRequestForm.event_end_date,
+        event_name: speakingRequestForm.event_theme,
+        expected_attendance: speakingRequestForm.expected_attendance,
+        honorarium: speakingRequestForm.honorarium,
+        status: 'pending',
+        // Additional fields as JSON in notes or separate columns
+        sunday_requirement: speakingRequestForm.sunday_requirement,
+        worked_with_before: speakingRequestForm.worked_with_before,
+        previous_event_details: speakingRequestForm.previous_event_details,
+        event_audience: speakingRequestForm.event_audience.join(', '),
+        merch_allowed: speakingRequestForm.merch_allowed,
+        event_attire: speakingRequestForm.event_attire,
+        expenses_covered: speakingRequestForm.expenses_covered.join(', '),
+        expense_contact: `${speakingRequestForm.expense_contact_first} ${speakingRequestForm.expense_contact_last}`,
+        expense_email: speakingRequestForm.expense_email,
+        notes: speakingRequestForm.additional_comments,
+        speaker_user_id: currentUser?.id || 1, // Default to speaker ID 1 for public form
+        is_manual: false,
+      };
+      
+      await apiCall(DATA_API, '/booking_request', {
+        method: 'POST',
+        body: JSON.stringify(requestData),
+      });
+      
+      // Reset form
+      setSpeakingRequestForm({
+        church_name: '',
+        contact_first_name: '',
+        contact_last_name: '',
+        contact_email: '',
+        contact_phone: '',
+        church_street: '',
+        church_street2: '',
+        church_city: '',
+        church_state: '',
+        church_zip: '',
+        venue_street: '',
+        venue_street2: '',
+        venue_city: '',
+        venue_state: '',
+        venue_zip: '',
+        event_date: '',
+        event_end_date: '',
+        sunday_requirement: '',
+        worked_with_before: '',
+        previous_event_details: '',
+        event_theme: '',
+        event_audience: [],
+        expected_attendance: '',
+        merch_allowed: '',
+        event_attire: '',
+        honorarium: '',
+        expenses_covered: [],
+        expense_contact_first: '',
+        expense_contact_last: '',
+        expense_email: '',
+        additional_comments: '',
+      });
+      setShowSpeakingRequestForm(false);
+      alert('Speaking request submitted successfully! You will receive a response soon.');
+      
+      // Reload requests if logged in
+      if (currentUser) {
+        const requestsData = await apiCall(DATA_API, '/booking_request').catch(() => []);
+        setBookingRequests(Array.isArray(requestsData) ? requestsData : []);
+      }
+    } catch (error) {
+      console.error('Failed to submit speaking request:', error);
+      alert('Failed to submit request. Please try again.');
+    }
+    setSubmittingRequest(false);
   };
 
   // Messaging functions
@@ -601,7 +799,10 @@ export default function PulpitApp() {
   const handleDocumentUpload = async (requestId, docType, file, isUniversal = false) => {
     setUploadingDoc(true);
     try {
-      // For now, we'll store document metadata - actual file upload would need cloud storage
+      // Upload file to Xano
+      const uploadResult = await uploadFile(file);
+      const fileUrl = uploadResult.path || uploadResult.url || uploadResult.file?.url;
+      
       await apiCall(DATA_API, '/document', {
         method: 'POST',
         body: JSON.stringify({
@@ -610,7 +811,7 @@ export default function PulpitApp() {
           booking_request_id: isUniversal ? null : requestId,
           uploaded_by_user_id: currentUser.id,
           status: 'uploaded',
-          file: file.name,
+          file: fileUrl,
           is_universal: isUniversal,
         }),
       });
@@ -619,6 +820,7 @@ export default function PulpitApp() {
       setDocuments(Array.isArray(documentsData) ? documentsData : []);
     } catch (error) {
       console.error('Failed to upload document:', error);
+      alert('Failed to upload document. Please try again.');
     }
     setUploadingDoc(false);
   };
@@ -2127,8 +2329,23 @@ export default function PulpitApp() {
             <button onClick={() => setCurrentView('auth')} style={{ ...styles.button, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '14px' : '15px' }}>
               GET STARTED
             </button>
-            <button onClick={() => setCurrentView('publicProfile')} style={{ ...styles.buttonSecondary, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '14px' : '15px' }}>
-              VIEW DEMO PROFILE
+            <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.buttonSecondary, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '14px' : '15px' }}>
+              SUBMIT A REQUEST
+            </button>
+          </div>
+        </section>
+
+        {/* For Event Hosts */}
+        <section style={{ padding: isMobile ? '48px 20px' : '80px 48px' }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '24px' : '36px', letterSpacing: '2px', marginBottom: '16px', color: '#F7F3E9' }}>
+              EVENT HOSTS
+            </h2>
+            <p style={{ fontSize: isMobile ? '16px' : '18px', color: 'rgba(247,243,233,0.6)', marginBottom: '32px', lineHeight: '1.7' }}>
+              Looking to book a speaker for your church, conference, or event? Submit a speaking request and we'll get back to you soon.
+            </p>
+            <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.button, padding: isMobile ? '16px 40px' : '18px 56px', fontSize: isMobile ? '14px' : '15px' }}>
+              SUBMIT SPEAKING REQUEST
             </button>
           </div>
         </section>
@@ -2606,8 +2823,54 @@ export default function PulpitApp() {
                 </div>
                 
                 <div style={{ display: 'flex', gap: '24px', marginBottom: '32px', alignItems: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
-                  <div style={{ width: isMobile ? '100px' : '120px', height: isMobile ? '100px' : '120px', background: 'linear-gradient(135deg, #535E4A, #3d4638)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? '36px' : '48px', fontWeight: '600', color: '#F7F3E9', flexShrink: 0 }}>
-                    {currentUser?.name?.charAt(0) || 'U'}
+                  {/* Profile Picture */}
+                  <div style={{ position: 'relative' }}>
+                    {currentUser?.profile_photo ? (
+                      <img 
+                        src={currentUser.profile_photo} 
+                        alt="Profile" 
+                        style={{ 
+                          width: isMobile ? '100px' : '120px', 
+                          height: isMobile ? '100px' : '120px', 
+                          borderRadius: '50%', 
+                          objectFit: 'cover',
+                          border: '3px solid rgba(83,94,74,0.5)',
+                        }} 
+                      />
+                    ) : (
+                      <div style={{ width: isMobile ? '100px' : '120px', height: isMobile ? '100px' : '120px', background: 'linear-gradient(135deg, #535E4A, #3d4638)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? '36px' : '48px', fontWeight: '600', color: '#F7F3E9', flexShrink: 0 }}>
+                        {currentUser?.name?.charAt(0) || 'U'}
+                      </div>
+                    )}
+                    {/* Upload Button Overlay */}
+                    <label style={{ 
+                      position: 'absolute', 
+                      bottom: 0, 
+                      right: 0, 
+                      width: '36px', 
+                      height: '36px', 
+                      background: '#535E4A', 
+                      borderRadius: '50%', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      cursor: uploadingProfilePic ? 'not-allowed' : 'pointer',
+                      border: '2px solid #0A0A0A',
+                      opacity: uploadingProfilePic ? 0.6 : 1,
+                    }}>
+                      {uploadingProfilePic ? (
+                        <div style={{ width: '16px', height: '16px', border: '2px solid rgba(247,243,233,0.3)', borderTopColor: '#F7F3E9', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                      ) : (
+                        <Upload size={16} color="#F7F3E9" />
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        style={{ display: 'none' }} 
+                        onChange={handleProfilePictureUpload}
+                        disabled={uploadingProfilePic}
+                      />
+                    </label>
                   </div>
                   <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left' }}>
                     {editingProfile ? (
@@ -3833,17 +4096,6 @@ export default function PulpitApp() {
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={styles.label}>Venue Address</label>
-                  <input 
-                    type="text" 
-                    value={newEventForm.venue_address} 
-                    onChange={(e) => setNewEventForm(prev => ({ ...prev, venue_address: e.target.value }))} 
-                    style={styles.input} 
-                    placeholder="123 Main Street, Dallas, TX 75201" 
-                  />
-                </div>
-
-                <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Expected Attendance</label>
                   <input 
                     type="text" 
@@ -4037,6 +4289,240 @@ export default function PulpitApp() {
                   style={{ ...styles.button, flex: 1, opacity: addingEvent || !newEventForm.event_name || !newEventForm.event_date ? 0.5 : 1 }}
                 >
                   {addingEvent ? 'ADDING...' : 'ADD EVENT'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Speaking Request Form Modal */}
+        {showSpeakingRequestForm && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
+            <div style={{ ...styles.card, background: '#0A0A0A', maxWidth: '700px', width: '100%', margin: '40px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div>
+                  <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>SPEAKING REQUEST FORM</h2>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px', marginTop: '4px' }}>Preaching the Word. Unpacking Scripture. Cultivating Faithfulness.</p>
+                </div>
+                <button onClick={() => setShowSpeakingRequestForm(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer' }}>
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Church/Organization Info */}
+              <div style={{ marginBottom: '32px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Church / Organization Information</h4>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Church/Organization Name *</label>
+                  <input type="text" value={speakingRequestForm.church_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_name: e.target.value }))} style={styles.input} required />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Your First Name *</label>
+                    <input type="text" value={speakingRequestForm.contact_first_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_first_name: e.target.value }))} style={styles.input} required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Your Last Name *</label>
+                    <input type="text" value={speakingRequestForm.contact_last_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_last_name: e.target.value }))} style={styles.input} required />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Your Email *</label>
+                    <input type="email" value={speakingRequestForm.contact_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_email: e.target.value }))} style={styles.input} required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Your Phone Number *</label>
+                    <input type="tel" value={speakingRequestForm.contact_phone} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_phone: e.target.value }))} style={styles.input} placeholder="(000) 000-0000" required />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Church/Organization Address *</label>
+                  <input type="text" value={speakingRequestForm.church_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Street Address" required />
+                  <input type="text" value={speakingRequestForm.church_street2} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_street2: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Street Address Line 2" />
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>
+                    <input type="text" value={speakingRequestForm.church_city} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_city: e.target.value }))} style={styles.input} placeholder="City" required />
+                    <input type="text" value={speakingRequestForm.church_state} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_state: e.target.value }))} style={styles.input} placeholder="State" required />
+                    <input type="text" value={speakingRequestForm.church_zip} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_zip: e.target.value }))} style={styles.input} placeholder="Zip" required />
+                  </div>
+                </div>
+              </div>
+
+              {/* Event Details */}
+              <div style={{ marginBottom: '32px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Event Details</h4>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event/Venue Address *</label>
+                  <input type="text" value={speakingRequestForm.venue_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Street Address" required />
+                  <input type="text" value={speakingRequestForm.venue_street2} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street2: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Street Address Line 2" />
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>
+                    <input type="text" value={speakingRequestForm.venue_city} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_city: e.target.value }))} style={styles.input} placeholder="City" required />
+                    <input type="text" value={speakingRequestForm.venue_state} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_state: e.target.value }))} style={styles.input} placeholder="State" required />
+                    <input type="text" value={speakingRequestForm.venue_zip} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_zip: e.target.value }))} style={styles.input} placeholder="Zip" required />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Event Start Date *</label>
+                    <input type="date" value={speakingRequestForm.event_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_date: e.target.value }))} style={styles.input} required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Event End Date *</label>
+                    <input type="date" value={speakingRequestForm.event_end_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_end_date: e.target.value }))} style={styles.input} min={speakingRequestForm.event_date} required />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>If this event includes a Sunday, is Sunday required? *</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    {['Sunday is not required', 'Sunday is preferred', 'Sunday is Required'].map((option) => (
+                      <label key={option} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', background: speakingRequestForm.sunday_requirement === option ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.sunday_requirement === option ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
+                        <input type="radio" name="sunday_requirement" value={option} checked={speakingRequestForm.sunday_requirement === option} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, sunday_requirement: e.target.value }))} style={{ accentColor: '#535E4A' }} />
+                        <span style={{ color: '#F7F3E9', fontSize: '14px' }}>{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Have you or your church/organization ever done or attended an event with Shaq before? *</label>
+                  <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                    {['Yes', 'No'].map((option) => (
+                      <label key={option} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 20px', background: speakingRequestForm.worked_with_before === option ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.worked_with_before === option ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
+                        <input type="radio" name="worked_with_before" value={option} checked={speakingRequestForm.worked_with_before === option} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, worked_with_before: e.target.value }))} style={{ accentColor: '#535E4A' }} />
+                        <span style={{ color: '#F7F3E9', fontSize: '14px' }}>{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Conditional Question */}
+                {speakingRequestForm.worked_with_before === 'Yes' && (
+                  <div style={{ marginBottom: '16px', padding: '16px', background: 'rgba(83,94,74,0.1)', borderRadius: '10px', borderLeft: '3px solid #535E4A' }}>
+                    <label style={styles.label}>What event (Name, Month, Year if you can recall)? *</label>
+                    <input type="text" value={speakingRequestForm.previous_event_details} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, previous_event_details: e.target.value }))} style={styles.input} placeholder="e.g. Youth Conference, March 2024" required />
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Theme & Goal *</label>
+                  <textarea value={speakingRequestForm.event_theme} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_theme: e.target.value }))} style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} placeholder="Describe the theme and what you hope to accomplish..." required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Audience *</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
+                    {['Church Congregation', 'Adults', "Men's Ministry", 'Young Adults', 'College Students', 'High School Students', 'Middle School Students', 'Other'].map((audience) => (
+                      <label key={audience} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', background: speakingRequestForm.event_audience.includes(audience) ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.event_audience.includes(audience) ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
+                        <input type="checkbox" checked={speakingRequestForm.event_audience.includes(audience)} onChange={(e) => {
+                          if (e.target.checked) {
+                            setSpeakingRequestForm(prev => ({ ...prev, event_audience: [...prev.event_audience, audience] }));
+                          } else {
+                            setSpeakingRequestForm(prev => ({ ...prev, event_audience: prev.event_audience.filter(a => a !== audience) }));
+                          }
+                        }} style={{ accentColor: '#535E4A' }} />
+                        <span style={{ color: '#F7F3E9', fontSize: '13px' }}>{audience}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Anticipated Attendance *</label>
+                  <input type="number" value={speakingRequestForm.expected_attendance} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expected_attendance: e.target.value }))} style={styles.input} placeholder="e.g. 200" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Is the sale of merch allowed during the event? Would it make sense? *</label>
+                  <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                    {['Yes', 'No'].map((option) => (
+                      <label key={option} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 20px', background: speakingRequestForm.merch_allowed === option ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.merch_allowed === option ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
+                        <input type="radio" name="merch_allowed" value={option} checked={speakingRequestForm.merch_allowed === option} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, merch_allowed: e.target.value }))} style={{ accentColor: '#535E4A' }} />
+                        <span style={{ color: '#F7F3E9', fontSize: '14px' }}>{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Attire *</label>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    {['Casual', 'Business Casual', 'Suit and Tie'].map((option) => (
+                      <label key={option} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 16px', background: speakingRequestForm.event_attire === option ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.event_attire === option ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
+                        <input type="radio" name="event_attire" value={option} checked={speakingRequestForm.event_attire === option} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_attire: e.target.value }))} style={{ accentColor: '#535E4A' }} />
+                        <span style={{ color: '#F7F3E9', fontSize: '14px' }}>{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Compensation & Expenses */}
+              <div style={{ marginBottom: '32px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Compensation & Expenses</h4>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Honorarium Amount *</label>
+                  <input type="text" value={speakingRequestForm.honorarium} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, honorarium: e.target.value }))} style={styles.input} placeholder="e.g. $1,500" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Expenses Covered *</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    {['Travel (mileage, rental, gas, car, etc.)', 'Travel for companion (flight)', 'Food & Coffee', 'Parking', 'Hotel'].map((expense) => (
+                      <label key={expense} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', background: speakingRequestForm.expenses_covered.includes(expense) ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.expenses_covered.includes(expense) ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
+                        <input type="checkbox" checked={speakingRequestForm.expenses_covered.includes(expense)} onChange={(e) => {
+                          if (e.target.checked) {
+                            setSpeakingRequestForm(prev => ({ ...prev, expenses_covered: [...prev.expenses_covered, expense] }));
+                          } else {
+                            setSpeakingRequestForm(prev => ({ ...prev, expenses_covered: prev.expenses_covered.filter(ex => ex !== expense) }));
+                          }
+                        }} style={{ accentColor: '#535E4A' }} />
+                        <span style={{ color: '#F7F3E9', fontSize: '13px' }}>{expense}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Send Expenses To (First Name) *</label>
+                    <input type="text" value={speakingRequestForm.expense_contact_first} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expense_contact_first: e.target.value }))} style={styles.input} required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Last Name *</label>
+                    <input type="text" value={speakingRequestForm.expense_contact_last} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expense_contact_last: e.target.value }))} style={styles.input} required />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Email Expenses To... *</label>
+                  <input type="email" value={speakingRequestForm.expense_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expense_email: e.target.value }))} style={styles.input} placeholder="expenses@example.com" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Additional Comments?</label>
+                  <textarea value={speakingRequestForm.additional_comments} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, additional_comments: e.target.value }))} style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }} placeholder="Any other details you'd like to share..." />
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={() => setShowSpeakingRequestForm(false)} style={{ ...styles.buttonSecondary, flex: 1 }}>
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSubmitSpeakingRequest} 
+                  disabled={submittingRequest || !speakingRequestForm.church_name || !speakingRequestForm.contact_email || !speakingRequestForm.event_date} 
+                  style={{ ...styles.button, flex: 2, opacity: submittingRequest ? 0.6 : 1 }}
+                >
+                  {submittingRequest ? 'SUBMITTING...' : 'SUBMIT REQUEST'}
                 </button>
               </div>
             </div>
