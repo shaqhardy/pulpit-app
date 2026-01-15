@@ -10,14 +10,14 @@ const DATA_API = 'https://x8ki-letl-twmt.n7.xano.io/api:EoXk01e5';
 // Mobile breakpoint
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
-  
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
+
   return isMobile;
 };
 
@@ -30,7 +30,7 @@ const getToken = () => {
 
 const apiCall = async (baseUrl, endpoint, options = {}) => {
   const token = getToken();
-  
+
   const headers = {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),
@@ -55,7 +55,7 @@ const uploadFile = async (file, endpoint = '/upload/attachment') => {
   const token = getToken();
   const formData = new FormData();
   formData.append('content', file);
-  
+
   const response = await fetch(`${DATA_API}${endpoint}`, {
     method: 'POST',
     headers: {
@@ -63,11 +63,11 @@ const uploadFile = async (file, endpoint = '/upload/attachment') => {
     },
     body: formData,
   });
-  
+
   if (!response.ok) {
     throw new Error('File upload failed');
   }
-  
+
   return response.json();
 };
 
@@ -181,7 +181,7 @@ export default function PulpitApp() {
   const [authError, setAuthError] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
-  
+
   // Data
   const [bookingRequests, setBookingRequests] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -191,15 +191,15 @@ export default function PulpitApp() {
   const [teamMembers, setTeamMembers] = useState([]);
   const [customForms, setCustomForms] = useState([]);
   const [sermons, setSermons] = useState([]);
-  
+
   // Selected request for detail view
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [detailTab, setDetailTab] = useState('details');
-  
+
   // Calendar state
   const [calendarDate, setCalendarDate] = useState(new Date());
-  
+
   // Manual Event Creation state
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [addingEvent, setAddingEvent] = useState(false);
@@ -221,10 +221,10 @@ export default function PulpitApp() {
     notes: '',
     status: 'confirmed',
   });
-  
+
   // Profile Picture state
   const [uploadingProfilePic, setUploadingProfilePic] = useState(false);
-  
+
   // Speaking Request Form state
   const [showSpeakingRequestForm, setShowSpeakingRequestForm] = useState(false);
   const [submittingRequest, setSubmittingRequest] = useState(false);
@@ -266,11 +266,11 @@ export default function PulpitApp() {
     expense_email: '',
     additional_comments: '',
   });
-  
+
   // Mobile state
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+
   // Profile editing state
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -287,43 +287,43 @@ export default function PulpitApp() {
     website: '',
   });
   const [savingProfile, setSavingProfile] = useState(false);
-  
+
   // Sermons state
   const [showAddSermon, setShowAddSermon] = useState(false);
   const [newSermonForm, setNewSermonForm] = useState({ title: '', url: '', date: '', description: '' });
   const [addingSermon, setAddingSermon] = useState(false);
-  
+
   // Messaging state
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   const [messagesSubTab, setMessagesSubTab] = useState('conversations');
-  
+
   // Document upload state
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [selectedRequestForDoc, setSelectedRequestForDoc] = useState(null);
-  
+
   // Itinerary state
   const [selectedRequestForItinerary, setSelectedRequestForItinerary] = useState(null);
   const [itineraryItems, setItineraryItems] = useState([]);
   const [newItineraryItem, setNewItineraryItem] = useState({ item_type: '', title: '', details: '', location: '', date_time: '' });
   const [editingItineraryItem, setEditingItineraryItem] = useState(null);
   const [editItineraryForm, setEditItineraryForm] = useState({ item_type: '', title: '', details: '', location: '', date_time: '' });
-  
+
   // Notification dropdown state
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
-  
+
   // Resources state
   const [resourceCategory, setResourceCategory] = useState('all');
   const [uploadingResource, setUploadingResource] = useState(false);
   const [newResourceForm, setNewResourceForm] = useState({ name: '', category: 'media_kit', description: '', link: '' });
   const [showAddResource, setShowAddResource] = useState(false);
-  
+
   // Team state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: '', name: '', role: 'viewer' });
   const [invitingMember, setInvitingMember] = useState(false);
-  
+
   // Settings state
   const [settingsTab, setSettingsTab] = useState('notifications');
   const [notificationSettings, setNotificationSettings] = useState({
@@ -335,7 +335,7 @@ export default function PulpitApp() {
     email_notifications: true,
     push_notifications: false,
   });
-  
+
   // Event Reminder Settings
   const [eventReminderSettings, setEventReminderSettings] = useState({
     enabled: true,
@@ -348,7 +348,7 @@ export default function PulpitApp() {
     include_itinerary: true,
     include_documents: false,
   });
-  
+
   // Profile Privacy Settings
   const [profilePrivacySettings, setProfilePrivacySettings] = useState({
     profile_public: true,
@@ -361,13 +361,13 @@ export default function PulpitApp() {
     show_sermons: true,
     accepting_bookings: true,
   });
-  
+
   // Form Builder state
   const [showFormBuilder, setShowFormBuilder] = useState(false);
   const [editingForm, setEditingForm] = useState(null);
   const [formBuilderData, setFormBuilderData] = useState({ name: '', description: '', fields: [] });
   const [savingForm, setSavingForm] = useState(false);
-  
+
   // Booking Form Customization
   const [bookingFormConfig, setBookingFormConfig] = useState({
     fields: {
@@ -384,11 +384,11 @@ export default function PulpitApp() {
     },
     customFields: [],
   });
-  
+
   const [savingSettings, setSavingSettings] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  
+
   // Form data
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -437,7 +437,7 @@ export default function PulpitApp() {
       setDeferredPrompt(e);
       setShowInstallPrompt(true);
     };
-    
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
@@ -502,7 +502,7 @@ export default function PulpitApp() {
         apiCall(DATA_API, '/custom_form').catch(() => []),
         apiCall(DATA_API, '/sermon').catch(() => []),
       ]);
-      
+
       setBookingRequests(Array.isArray(requestsData) ? requestsData : []);
       setMessages(Array.isArray(messagesData) ? messagesData : []);
       setNotifications(Array.isArray(notificationsData) ? notificationsData : []);
@@ -566,12 +566,12 @@ export default function PulpitApp() {
         is_manual: true,
         created_at: new Date().toISOString(),
       };
-      
+
       const response = await apiCall(DATA_API, '/booking_request', {
         method: 'POST',
         body: JSON.stringify(eventData),
       });
-      
+
       // If there are attachments, save them linked to this event
       if (eventAttachments.length > 0) {
         for (const attachment of eventAttachments) {
@@ -589,10 +589,10 @@ export default function PulpitApp() {
           });
         }
       }
-      
+
       // Add to local state
       setBookingRequests(prev => [...prev, response]);
-      
+
       // Reset form and close modal
       setNewEventForm({
         event_name: '',
@@ -623,7 +623,7 @@ export default function PulpitApp() {
   const handleEventFileAttachment = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     setUploadingAttachment(true);
     try {
       // Upload to Xano
@@ -652,18 +652,26 @@ export default function PulpitApp() {
   const handleProfilePictureUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      alert(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please use an image under 5MB.`);
+      e.target.value = '';
+      return;
+    }
+
     setUploadingProfilePic(true);
     try {
       const uploadResult = await uploadFile(file, '/upload/image');
       const imageUrl = uploadResult.path || uploadResult.url || uploadResult.file?.url;
-      
+
       // Update user profile with new image
       await apiCall(DATA_API, `/user/${currentUser.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ profile_photo: imageUrl }),
       });
-      
+
       setCurrentUser(prev => ({ ...prev, profile_photo: imageUrl }));
     } catch (error) {
       console.error('Failed to upload profile picture:', error);
@@ -680,7 +688,7 @@ export default function PulpitApp() {
       alert('Please fill in all required fields.');
       return;
     }
-    
+
     setSubmittingRequest(true);
     try {
       const requestData = {
@@ -711,12 +719,12 @@ export default function PulpitApp() {
         speaker_user_id: currentUser?.id || 1, // Default to speaker ID 1 for public form
         is_manual: false,
       };
-      
+
       await apiCall(DATA_API, '/booking_request', {
         method: 'POST',
         body: JSON.stringify(requestData),
       });
-      
+
       // Reset form
       setSpeakingRequestForm({
         church_name: '',
@@ -753,7 +761,7 @@ export default function PulpitApp() {
       });
       setShowSpeakingRequestForm(false);
       alert('Speaking request submitted successfully! You will receive a response soon.');
-      
+
       // Reload requests if logged in
       if (currentUser) {
         const requestsData = await apiCall(DATA_API, '/booking_request').catch(() => []);
@@ -802,7 +810,7 @@ export default function PulpitApp() {
       // Upload file to Xano
       const uploadResult = await uploadFile(file);
       const fileUrl = uploadResult.path || uploadResult.url || uploadResult.file?.url;
-      
+
       await apiCall(DATA_API, '/document', {
         method: 'POST',
         body: JSON.stringify({
@@ -1211,7 +1219,7 @@ export default function PulpitApp() {
     e.preventDefault();
     setAuthLoading(true);
     setAuthError('');
-    
+
     try {
       const response = await apiCall(AUTH_API, '/auth/login', {
         method: 'POST',
@@ -1229,13 +1237,13 @@ export default function PulpitApp() {
     e.preventDefault();
     setAuthLoading(true);
     setAuthError('');
-    
+
     try {
       const response = await apiCall(AUTH_API, '/auth/signup', {
         method: 'POST',
-        body: JSON.stringify({ 
-          name: signupName, 
-          email: signupEmail, 
+        body: JSON.stringify({
+          name: signupName,
+          email: signupEmail,
           password: signupPassword
         }),
       });
@@ -1261,12 +1269,12 @@ export default function PulpitApp() {
         method: 'PATCH',
         body: JSON.stringify({ status: newStatus }),
       });
-      
+
       // Update local state
-      setBookingRequests(prev => prev.map(r => 
+      setBookingRequests(prev => prev.map(r =>
         r.id === requestId ? { ...r, status: newStatus } : r
       ));
-      
+
       // Update selected request if viewing
       if (selectedRequest && selectedRequest.id === requestId) {
         setSelectedRequest(prev => ({ ...prev, status: newStatus }));
@@ -1483,8 +1491,8 @@ export default function PulpitApp() {
   };
 
   // Filter resources by category
-  const filteredResources = resourceCategory === 'all' 
-    ? resources 
+  const filteredResources = resourceCategory === 'all'
+    ? resources
     : resources.filter(r => r.category === resourceCategory);
 
   const getStatusBadge = (status) => {
@@ -1499,7 +1507,7 @@ export default function PulpitApp() {
 
   // Get universal documents (no booking_request_id or is_universal = true)
   const universalDocs = documents.filter(d => !d.booking_request_id || d.is_universal);
-  
+
   // Get event-specific documents grouped by request
   const getEventDocs = () => {
     const eventDocs = documents.filter(d => d.booking_request_id && !d.is_universal);
@@ -1518,14 +1526,14 @@ export default function PulpitApp() {
   // REQUEST DETAIL VIEW
   const renderRequestDetail = () => {
     if (!selectedRequest) return null;
-    
+
     const notes = parseNotes(selectedRequest.notes);
     const contact = notes.contact || {};
     const churchAddress = notes.churchAddress || {};
     const eventAddress = notes.eventAddress || {};
     const requestMessages = messages.filter(m => m.booking_request_id === selectedRequest.id);
     const requestDocs = documents.filter(d => d.booking_request_id === selectedRequest.id);
-    
+
     return (
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, overflow: 'auto' }}>
         <div style={{ maxWidth: '900px', margin: '40px auto', padding: '0 20px' }}>
@@ -1743,7 +1751,7 @@ export default function PulpitApp() {
                     ))
                   )}
                 </div>
-                
+
                 {/* Message Input */}
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <input
@@ -1859,7 +1867,7 @@ export default function PulpitApp() {
                     {itineraryItems.sort((a, b) => new Date(a.date_time) - new Date(b.date_time)).map((item, i) => {
                       const ItemIcon = getItineraryIcon(item.item_type);
                       const isEditing = editingItineraryItem === item.id;
-                      
+
                       if (isEditing) {
                         return (
                           <div key={item.id || i} style={{ padding: '16px', background: 'rgba(83,94,74,0.1)', borderRadius: '10px', marginBottom: '8px', border: '1px solid rgba(83,94,74,0.3)' }}>
@@ -1886,7 +1894,7 @@ export default function PulpitApp() {
                           </div>
                         );
                       }
-                      
+
                       return (
                         <div key={item.id || i} style={{ display: 'flex', gap: '16px', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '8px', alignItems: 'flex-start' }}>
                           <div style={{ width: '40px', height: '40px', background: 'rgba(83,94,74,0.2)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1929,7 +1937,7 @@ export default function PulpitApp() {
     const confirmedEvents = bookingRequests.filter(r => r.status === 'confirmed' || r.status === 'completed');
     const yearsPreaching = currentUser?.year_started ? new Date().getFullYear() - parseInt(currentUser.year_started) : null;
     const displayLocation = currentUser?.location?.split(',')[0] || 'US';
-    
+
     return (
       <div style={{ minHeight: '100vh', background: '#0A0A0A' }}>
         {/* Header */}
@@ -1944,27 +1952,27 @@ export default function PulpitApp() {
         <section style={{ padding: isMobile ? '48px 20px' : '80px 48px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
           {/* Profile Photo */}
           {currentUser?.profile_photo ? (
-            <img 
-              src={currentUser.profile_photo} 
-              alt={currentUser?.name || 'Speaker'} 
-              style={{ 
-                width: isMobile ? '140px' : '180px', 
-                height: isMobile ? '140px' : '180px', 
-                borderRadius: '50%', 
+            <img
+              src={currentUser.profile_photo}
+              alt={currentUser?.name || 'Speaker'}
+              style={{
+                width: isMobile ? '140px' : '180px',
+                height: isMobile ? '140px' : '180px',
+                borderRadius: '50%',
                 objectFit: 'cover',
                 margin: '0 auto 32px',
                 border: '4px solid rgba(83,94,74,0.5)',
-              }} 
+              }}
             />
           ) : (
-            <div style={{ 
-              width: isMobile ? '140px' : '180px', 
-              height: isMobile ? '140px' : '180px', 
-              background: 'linear-gradient(135deg, #535E4A, #3d4638)', 
-              borderRadius: '50%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
+            <div style={{
+              width: isMobile ? '140px' : '180px',
+              height: isMobile ? '140px' : '180px',
+              background: 'linear-gradient(135deg, #535E4A, #3d4638)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               margin: '0 auto 32px',
               fontSize: isMobile ? '48px' : '64px',
               fontWeight: '600',
@@ -1977,13 +1985,13 @@ export default function PulpitApp() {
           <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', letterSpacing: '3px', marginBottom: '16px', color: '#F7F3E9' }}>
             {currentUser?.name || 'Speaker Name'}
           </h1>
-          
+
           {currentUser?.tagline && (
             <p style={{ fontSize: isMobile ? '16px' : '20px', color: 'rgba(247,243,233,0.7)', marginBottom: '24px', fontStyle: 'italic' }}>
               {currentUser.tagline}
             </p>
           )}
-          
+
           {currentUser?.bio && (
             <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'rgba(247,243,233,0.6)', maxWidth: '700px', margin: '0 auto 48px', lineHeight: '1.8' }}>
               {currentUser.bio}
@@ -2061,13 +2069,13 @@ export default function PulpitApp() {
                 'Chapel Services',
                 'Workshops',
               ].map((type, i) => (
-                <span key={i} style={{ 
-                  padding: isMobile ? '10px 18px' : '12px 24px', 
-                  background: 'rgba(83,94,74,0.15)', 
+                <span key={i} style={{
+                  padding: isMobile ? '10px 18px' : '12px 24px',
+                  background: 'rgba(83,94,74,0.15)',
                   border: '1px solid rgba(83,94,74,0.3)',
-                  borderRadius: '30px', 
-                  fontSize: isMobile ? '12px' : '14px', 
-                  color: '#F7F3E9' 
+                  borderRadius: '30px',
+                  fontSize: isMobile ? '12px' : '14px',
+                  color: '#F7F3E9'
                 }}>
                   {type}
                 </span>
@@ -2228,7 +2236,7 @@ export default function PulpitApp() {
             {/* Contact Information */}
             <div style={{ ...styles.card, marginBottom: '24px', padding: isMobile ? '20px' : '24px' }}>
               <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', marginBottom: '24px', color: '#F7F3E9' }}>CONTACT INFORMATION</h2>
-              
+
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
                   <label style={styles.label}>First Name *</label>
@@ -2279,7 +2287,7 @@ export default function PulpitApp() {
             {/* Event Details */}
             <div style={{ ...styles.card, marginBottom: '24px' }}>
               <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', marginBottom: '24px', color: '#F7F3E9' }}>EVENT DETAILS</h2>
-              
+
               <label style={{ ...styles.label, marginBottom: '16px', fontSize: '13px' }}>Event Address</label>
               <div style={{ marginBottom: '16px' }}>
                 <label style={styles.label}>Address</label>
@@ -2686,19 +2694,19 @@ export default function PulpitApp() {
 
       {/* Mobile Overlay */}
       {isMobile && sidebarOpen && (
-        <div 
-          onClick={() => setSidebarOpen(false)} 
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }} 
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }}
         />
       )}
 
       {/* Sidebar */}
-      <div style={{ 
-        width: '240px', 
-        background: 'rgba(247,243,233,0.02)', 
-        borderRight: '1px solid rgba(247,243,233,0.08)', 
-        padding: '24px 16px', 
-        display: 'flex', 
+      <div style={{
+        width: '240px',
+        background: 'rgba(247,243,233,0.02)',
+        borderRight: '1px solid rgba(247,243,233,0.08)',
+        padding: '24px 16px',
+        display: 'flex',
         flexDirection: 'column',
         ...(isMobile && {
           position: 'fixed',
@@ -2718,7 +2726,7 @@ export default function PulpitApp() {
             </button>
           )}
         </div>
-        
+
         <nav style={{ flex: 1 }}>
           {navItems.map((item) => (
             <button key={item.id} onClick={() => { setActiveTab(item.id); if (isMobile) setSidebarOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: activeTab === item.id ? 'rgba(83,94,74,0.2)' : 'transparent', border: 'none', borderRadius: '10px', color: activeTab === item.id ? '#F7F3E9' : 'rgba(247,243,233,0.6)', cursor: 'pointer', fontSize: '14px', marginBottom: '4px', textAlign: 'left' }}>
@@ -2758,10 +2766,10 @@ export default function PulpitApp() {
             {activeTab === 'team' && 'Team'}
             {activeTab === 'settings' && 'Settings'}
           </h1>
-          
+
           {/* Notification Bell with Dropdown */}
           <div style={{ position: 'relative' }}>
-            <button 
+            <button
               onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)}
               style={{ position: 'relative', background: 'transparent', border: 'none', cursor: 'pointer', padding: '8px' }}
             >
@@ -2770,18 +2778,18 @@ export default function PulpitApp() {
                 <span style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', background: '#EF4444', borderRadius: '50%' }} />
               )}
             </button>
-            
+
             {/* Notification Dropdown */}
             {notificationDropdownOpen && (
-              <div style={{ 
-                position: 'absolute', 
-                top: '100%', 
-                right: 0, 
-                width: isMobile ? '300px' : '360px', 
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                width: isMobile ? '300px' : '360px',
                 maxHeight: '400px',
-                background: '#0A0A0A', 
-                border: '1px solid rgba(247,243,233,0.1)', 
-                borderRadius: '12px', 
+                background: '#0A0A0A',
+                border: '1px solid rgba(247,243,233,0.1)',
+                borderRadius: '12px',
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
                 zIndex: 1000,
                 overflow: 'hidden',
@@ -2789,7 +2797,7 @@ export default function PulpitApp() {
                 <div style={{ padding: '16px', borderBottom: '1px solid rgba(247,243,233,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '16px', letterSpacing: '1px', color: '#F7F3E9' }}>NOTIFICATIONS</h3>
                   {unreadNotifications > 0 && (
-                    <button 
+                    <button
                       onClick={handleMarkAllNotificationsRead}
                       style={{ background: 'transparent', border: 'none', color: '#535E4A', cursor: 'pointer', fontSize: '12px' }}
                     >
@@ -2797,7 +2805,7 @@ export default function PulpitApp() {
                     </button>
                   )}
                 </div>
-                
+
                 <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                   {notifications.length === 0 ? (
                     <div style={{ padding: '32px', textAlign: 'center' }}>
@@ -2808,11 +2816,11 @@ export default function PulpitApp() {
                     notifications.slice(0, 10).map((notification, i) => {
                       const NotifIcon = getNotificationIcon(notification.type);
                       return (
-                        <div 
+                        <div
                           key={notification.id || i}
                           onClick={() => handleMarkNotificationRead(notification.id)}
-                          style={{ 
-                            padding: '12px 16px', 
+                          style={{
+                            padding: '12px 16px',
                             borderBottom: '1px solid rgba(247,243,233,0.05)',
                             background: notification.read ? 'transparent' : 'rgba(83,94,74,0.1)',
                             cursor: 'pointer',
@@ -2836,7 +2844,7 @@ export default function PulpitApp() {
                     })
                   )}
                 </div>
-                
+
                 {/* Install App Banner */}
                 {showInstallPrompt && (
                   <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(247,243,233,0.08)', background: 'rgba(83,94,74,0.1)' }}>
@@ -2859,9 +2867,9 @@ export default function PulpitApp() {
 
         {/* Notification Dropdown Overlay */}
         {notificationDropdownOpen && (
-          <div 
-            onClick={() => setNotificationDropdownOpen(false)} 
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} 
+          <div
+            onClick={() => setNotificationDropdownOpen(false)}
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
           />
         )}
 
@@ -3032,21 +3040,21 @@ export default function PulpitApp() {
                     </div>
                   )}
                 </div>
-                
+
                 <div style={{ display: 'flex', gap: '24px', marginBottom: '32px', alignItems: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
                   {/* Profile Picture */}
                   <div style={{ position: 'relative' }}>
                     {currentUser?.profile_photo ? (
-                      <img 
-                        src={currentUser.profile_photo} 
-                        alt="Profile" 
-                        style={{ 
-                          width: isMobile ? '100px' : '120px', 
-                          height: isMobile ? '100px' : '120px', 
-                          borderRadius: '50%', 
+                      <img
+                        src={currentUser.profile_photo}
+                        alt="Profile"
+                        style={{
+                          width: isMobile ? '100px' : '120px',
+                          height: isMobile ? '100px' : '120px',
+                          borderRadius: '50%',
                           objectFit: 'cover',
                           border: '3px solid rgba(83,94,74,0.5)',
-                        }} 
+                        }}
                       />
                     ) : (
                       <div style={{ width: isMobile ? '100px' : '120px', height: isMobile ? '100px' : '120px', background: 'linear-gradient(135deg, #535E4A, #3d4638)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? '36px' : '48px', fontWeight: '600', color: '#F7F3E9', flexShrink: 0 }}>
@@ -3054,17 +3062,17 @@ export default function PulpitApp() {
                       </div>
                     )}
                     {/* Upload Button Overlay */}
-                    <label style={{ 
-                      position: 'absolute', 
-                      bottom: 0, 
-                      right: 0, 
-                      width: '36px', 
-                      height: '36px', 
-                      background: '#535E4A', 
-                      borderRadius: '50%', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
+                    <label style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      right: 0,
+                      width: '36px',
+                      height: '36px',
+                      background: '#535E4A',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       cursor: uploadingProfilePic ? 'not-allowed' : 'pointer',
                       border: '2px solid #0A0A0A',
                       opacity: uploadingProfilePic ? 0.6 : 1,
@@ -3074,10 +3082,10 @@ export default function PulpitApp() {
                       ) : (
                         <Upload size={16} color="#F7F3E9" />
                       )}
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        style={{ display: 'none' }} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
                         onChange={handleProfilePictureUpload}
                         disabled={uploadingProfilePic}
                       />
@@ -3260,30 +3268,30 @@ export default function PulpitApp() {
               const daysInMonth = new Date(year, month + 1, 0).getDate();
               const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
               const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-              
+
               // Get events for this month (including multi-day events)
               const getEventsForDate = (day) => {
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const checkDate = new Date(year, month, day);
-                
+
                 return bookingRequests.filter(r => {
                   if (!r.event_date) return false;
-                  
+
                   const startDate = new Date(r.event_date);
                   startDate.setHours(0, 0, 0, 0);
-                  
+
                   // If there's an end date, check if current date falls within range
                   if (r.event_end_date) {
                     const endDate = new Date(r.event_end_date);
                     endDate.setHours(23, 59, 59, 999);
                     return checkDate >= startDate && checkDate <= endDate;
                   }
-                  
+
                   // Single day event
                   return r.event_date.startsWith(dateStr);
                 });
               };
-              
+
               const days = [];
               // Empty cells for days before first day of month
               for (let i = 0; i < firstDay; i++) {
@@ -3293,19 +3301,19 @@ export default function PulpitApp() {
               for (let i = 1; i <= daysInMonth; i++) {
                 days.push(i);
               }
-              
+
               const today = new Date();
               const isToday = (day) => {
                 return day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
               };
-              
+
               return (
                 <div>
                   {/* Calendar Header */}
                   <div style={{ ...styles.card, marginBottom: '24px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                       <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9' }}>YOUR CALENDAR</h3>
-                      <button 
+                      <button
                         onClick={() => setShowAddEvent(true)}
                         style={{ ...styles.button, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
                       >
@@ -3313,7 +3321,7 @@ export default function PulpitApp() {
                       </button>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <button 
+                      <button
                         onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
                         style={{ ...styles.buttonSecondary, padding: '10px 16px' }}
                       >
@@ -3322,7 +3330,7 @@ export default function PulpitApp() {
                       <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '24px', letterSpacing: '2px', color: '#F7F3E9' }}>
                         {monthNames[month]} {year}
                       </h2>
-                      <button 
+                      <button
                         onClick={() => setCalendarDate(new Date(year, month + 1, 1))}
                         style={{ ...styles.buttonSecondary, padding: '10px 16px' }}
                       >
@@ -3341,45 +3349,45 @@ export default function PulpitApp() {
                         </div>
                       ))}
                     </div>
-                    
+
                     {/* Calendar Days */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
                       {days.map((day, index) => {
                         if (day === null) {
                           return <div key={`empty-${index}`} style={{ minHeight: '100px' }} />;
                         }
-                        
+
                         const events = getEventsForDate(day);
                         const hasConfirmed = events.some(e => e.status === 'confirmed');
                         const hasPending = events.some(e => e.status === 'pending');
-                        
+
                         return (
-                          <div 
-                            key={day} 
-                            style={{ 
-                              minHeight: '100px', 
+                          <div
+                            key={day}
+                            style={{
+                              minHeight: '100px',
                               padding: '8px',
                               background: isToday(day) ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.02)',
                               borderRadius: '8px',
                               border: isToday(day) ? '1px solid rgba(83,94,74,0.5)' : '1px solid rgba(247,243,233,0.05)',
                             }}
                           >
-                            <div style={{ 
-                              fontSize: '14px', 
+                            <div style={{
+                              fontSize: '14px',
                               fontWeight: isToday(day) ? '700' : '500',
                               color: isToday(day) ? '#F7F3E9' : 'rgba(247,243,233,0.6)',
                               marginBottom: '6px'
                             }}>
                               {day}
                             </div>
-                            
+
                             {events.slice(0, 2).map((event, i) => {
                               const isMultiDay = event.event_end_date && event.event_end_date !== event.event_date;
                               return (
-                                <div 
+                                <div
                                   key={event.id || i}
                                   onClick={() => setSelectedRequest(event)}
-                                  style={{ 
+                                  style={{
                                     fontSize: '11px',
                                     padding: '4px 6px',
                                     marginBottom: '4px',
@@ -3398,7 +3406,7 @@ export default function PulpitApp() {
                                 </div>
                               );
                             })}
-                            
+
                             {events.length > 2 && (
                               <div style={{ fontSize: '10px', color: 'rgba(247,243,233,0.4)' }}>
                                 +{events.length - 2} more
@@ -3439,7 +3447,7 @@ export default function PulpitApp() {
                       <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)' }}>These documents can be sent to any host</p>
                     </div>
                   </div>
-                  
+
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '16px' }}>
                     {['W9', 'Contract Template', 'Rider'].map((docType) => {
                       const existingDoc = universalDocs.find(d => d.document_type === docType.toLowerCase().replace(' ', '_'));
@@ -3479,7 +3487,7 @@ export default function PulpitApp() {
                 <div style={styles.card}>
                   <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', letterSpacing: '1px', color: '#F7F3E9', marginBottom: '4px' }}>EVENT DOCUMENTS</h3>
                   <p style={{ fontSize: '13px', color: 'rgba(247,243,233,0.5)', marginBottom: '24px' }}>Documents organized by event</p>
-                  
+
                   {Object.keys(getEventDocs()).length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '48px', background: 'rgba(247,243,233,0.02)', borderRadius: '12px' }}>
                       <FolderOpen size={40} color="rgba(247,243,233,0.2)" style={{ marginBottom: '12px' }} />
@@ -3622,12 +3630,12 @@ export default function PulpitApp() {
                           <X size={20} />
                         </button>
                       </div>
-                      
+
                       <div style={{ marginBottom: '16px' }}>
                         <label style={styles.label}>Name *</label>
                         <input type="text" value={newResourceForm.name} onChange={(e) => setNewResourceForm(prev => ({ ...prev, name: e.target.value }))} style={styles.input} placeholder="Resource name" />
                       </div>
-                      
+
                       <div style={{ marginBottom: '16px' }}>
                         <label style={styles.label}>Category *</label>
                         <select value={newResourceForm.category} onChange={(e) => setNewResourceForm(prev => ({ ...prev, category: e.target.value }))} style={styles.input}>
@@ -3636,17 +3644,17 @@ export default function PulpitApp() {
                           ))}
                         </select>
                       </div>
-                      
+
                       <div style={{ marginBottom: '16px' }}>
                         <label style={styles.label}>Link / URL</label>
                         <input type="url" value={newResourceForm.link} onChange={(e) => setNewResourceForm(prev => ({ ...prev, link: e.target.value }))} style={styles.input} placeholder="https://..." />
                       </div>
-                      
+
                       <div style={{ marginBottom: '24px' }}>
                         <label style={styles.label}>Description</label>
                         <textarea value={newResourceForm.description} onChange={(e) => setNewResourceForm(prev => ({ ...prev, description: e.target.value }))} style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }} placeholder="Brief description..." />
                       </div>
-                      
+
                       <div style={{ display: 'flex', gap: '12px' }}>
                         <button onClick={() => setShowAddResource(false)} style={{ ...styles.buttonSecondary, flex: 1 }}>Cancel</button>
                         <button onClick={handleAddResource} disabled={uploadingResource || !newResourceForm.name} style={{ ...styles.button, flex: 1, opacity: uploadingResource || !newResourceForm.name ? 0.5 : 1 }}>
@@ -3865,17 +3873,17 @@ export default function PulpitApp() {
                           <X size={20} />
                         </button>
                       </div>
-                      
+
                       <div style={{ marginBottom: '16px' }}>
                         <label style={styles.label}>Name *</label>
                         <input type="text" value={inviteForm.name} onChange={(e) => setInviteForm(prev => ({ ...prev, name: e.target.value }))} style={styles.input} placeholder="Team member's name" />
                       </div>
-                      
+
                       <div style={{ marginBottom: '16px' }}>
                         <label style={styles.label}>Email *</label>
                         <input type="email" value={inviteForm.email} onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))} style={styles.input} placeholder="team@example.com" />
                       </div>
-                      
+
                       <div style={{ marginBottom: '24px' }}>
                         <label style={styles.label}>Role *</label>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -3894,7 +3902,7 @@ export default function PulpitApp() {
                           })}
                         </div>
                       </div>
-                      
+
                       <div style={{ display: 'flex', gap: '12px' }}>
                         <button onClick={() => setShowInviteModal(false)} style={{ ...styles.buttonSecondary, flex: 1 }}>Cancel</button>
                         <button onClick={handleInviteTeamMember} disabled={invitingMember || !inviteForm.email || !inviteForm.name} style={{ ...styles.button, flex: 1, opacity: invitingMember || !inviteForm.email || !inviteForm.name ? 0.5 : 1 }}>
@@ -3929,7 +3937,7 @@ export default function PulpitApp() {
                 {settingsTab === 'notifications' && (
                   <div style={styles.card}>
                     <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>NOTIFICATION PREFERENCES</h3>
-                    
+
                     <div style={{ marginBottom: '32px' }}>
                       <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Activity Notifications</h4>
                       {[
@@ -3979,7 +3987,7 @@ export default function PulpitApp() {
                 {settingsTab === 'reminders' && (
                   <div style={styles.card}>
                     <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>EVENT REMINDER SETTINGS</h3>
-                    
+
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '24px' }}>
                       <div>
                         <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>Enable Event Reminders</p>
@@ -4044,10 +4052,10 @@ export default function PulpitApp() {
                 {settingsTab === 'profile' && (
                   <div style={styles.card}>
                     <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>PROFILE & PRIVACY</h3>
-                    
+
                     <div style={{ marginBottom: '24px' }}>
                       <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Profile Visibility</h4>
-                      
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(247,243,233,0.03)', borderRadius: '10px', marginBottom: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <Globe size={18} color="rgba(247,243,233,0.5)" />
@@ -4119,7 +4127,7 @@ export default function PulpitApp() {
                   <div style={styles.card}>
                     <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '8px', letterSpacing: '1px', color: '#F7F3E9' }}>BOOKING FORM CUSTOMIZATION</h3>
                     <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px', marginBottom: '24px' }}>Control which fields appear on your booking request form and whether they're required</p>
-                    
+
                     <div style={{ marginBottom: '24px' }}>
                       {Object.entries(bookingFormConfig.fields).map(([key, field]) => (
                         <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
@@ -4148,7 +4156,7 @@ export default function PulpitApp() {
                   <div>
                     <div style={{ ...styles.card, marginBottom: '24px' }}>
                       <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>APP INSTALLATION</h3>
-                      
+
                       <div style={{ padding: '24px', background: 'rgba(83,94,74,0.1)', borderRadius: '12px', border: '1px solid rgba(83,94,74,0.2)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
                           <div style={{ width: '56px', height: '56px', background: '#535E4A', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -4159,7 +4167,7 @@ export default function PulpitApp() {
                             <p style={{ color: 'rgba(247,243,233,0.6)', fontSize: '13px' }}>Get quick access to Pulpit from your device's home screen</p>
                           </div>
                         </div>
-                        
+
                         {showInstallPrompt && deferredPrompt ? (
                           <button onClick={handleInstallApp} style={{ ...styles.button, width: '100%' }}>
                             INSTALL APP
@@ -4181,7 +4189,7 @@ export default function PulpitApp() {
 
                     <div style={styles.card}>
                       <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '18px', marginBottom: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>DATA & STORAGE</h3>
-                      
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
                         <div>
                           <p style={{ fontSize: '14px', color: '#F7F3E9', marginBottom: '4px' }}>Clear Local Cache</p>
@@ -4221,34 +4229,34 @@ export default function PulpitApp() {
               {/* Event Details */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Event Details</h4>
-                
+
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Event Name *</label>
-                  <input 
-                    type="text" 
-                    value={newEventForm.event_name} 
-                    onChange={(e) => setNewEventForm(prev => ({ ...prev, event_name: e.target.value }))} 
-                    style={styles.input} 
-                    placeholder="Youth Conference 2026" 
+                  <input
+                    type="text"
+                    value={newEventForm.event_name}
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, event_name: e.target.value }))}
+                    style={styles.input}
+                    placeholder="Youth Conference 2026"
                   />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                   <div>
                     <label style={styles.label}>Start Date *</label>
-                    <input 
-                      type="date" 
-                      value={newEventForm.event_date} 
-                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_date: e.target.value }))} 
-                      style={styles.input} 
+                    <input
+                      type="date"
+                      value={newEventForm.event_date}
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_date: e.target.value }))}
+                      style={styles.input}
                     />
                   </div>
                   <div>
                     <label style={styles.label}>End Date <span style={{ color: 'rgba(247,243,233,0.4)', fontWeight: '400' }}>(for multi-day)</span></label>
-                    <input 
-                      type="date" 
-                      value={newEventForm.event_end_date} 
-                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_end_date: e.target.value }))} 
+                    <input
+                      type="date"
+                      value={newEventForm.event_end_date}
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_end_date: e.target.value }))}
                       style={styles.input}
                       min={newEventForm.event_date}
                     />
@@ -4257,9 +4265,9 @@ export default function PulpitApp() {
 
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Event Type</label>
-                  <select 
-                    value={newEventForm.event_type} 
-                    onChange={(e) => setNewEventForm(prev => ({ ...prev, event_type: e.target.value }))} 
+                  <select
+                    value={newEventForm.event_type}
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, event_type: e.target.value }))}
                     style={styles.input}
                   >
                     <option value="">Select type...</option>
@@ -4277,80 +4285,81 @@ export default function PulpitApp() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                   <div>
                     <label style={styles.label}>Start Time</label>
-                    <input 
-                      type="time" 
-                      value={newEventForm.event_time} 
-                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_time: e.target.value }))} 
-                      style={styles.input} 
+                    <input
+                      type="time"
+                      value={newEventForm.event_time}
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, event_time: e.target.value }))}
+                      style={styles.input}
                     />
                   </div>
                   <div>
                     <label style={styles.label}>End Time</label>
-                    <input 
-                      type="time" 
-                      value={newEventForm.end_time} 
-                      onChange={(e) => setNewEventForm(prev => ({ ...prev, end_time: e.target.value }))} 
-                      style={styles.input} 
+                    <input
+                      type="time"
+                      value={newEventForm.end_time}
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, end_time: e.target.value }))}
+                      style={styles.input}
                     />
                   </div>
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Church / Organization</label>
-                  <input 
-                    type="text" 
-                    value={newEventForm.church_name} 
-                    onChange={(e) => setNewEventForm(prev => ({ ...prev, church_name: e.target.value }))} 
-                    style={styles.input} 
-                    placeholder="CityPoint Church" 
+                  <input
+                    type="text"
+                    value={newEventForm.church_name}
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, church_name: e.target.value }))}
+                    style={styles.input}
+                    placeholder="CityPoint Church"
                   />
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Expected Attendance</label>
-                  <input 
-                    type="text" 
-                    value={newEventForm.expected_attendance} 
-                    onChange={(e) => setNewEventForm(prev => ({ ...prev, expected_attendance: e.target.value }))} 
-                    style={styles.input} 
-                    placeholder="200" 
+                  <input
+                    type="text"
+                    value={newEventForm.expected_attendance}
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, expected_attendance: e.target.value }))}
+                    style={styles.input}
+                    placeholder="200"
                   />
                 </div>
+              </div>
 
               {/* Contact Info */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Contact Info</h4>
-                
+
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Contact Name</label>
-                  <input 
-                    type="text" 
-                    value={newEventForm.contact_name} 
-                    onChange={(e) => setNewEventForm(prev => ({ ...prev, contact_name: e.target.value }))} 
-                    style={styles.input} 
-                    placeholder="Marcus Johnson" 
+                  <input
+                    type="text"
+                    value={newEventForm.contact_name}
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, contact_name: e.target.value }))}
+                    style={styles.input}
+                    placeholder="Marcus Johnson"
                   />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                   <div>
                     <label style={styles.label}>Email</label>
-                    <input 
-                      type="email" 
-                      value={newEventForm.contact_email} 
-                      onChange={(e) => setNewEventForm(prev => ({ ...prev, contact_email: e.target.value }))} 
-                      style={styles.input} 
-                      placeholder="marcus@church.org" 
+                    <input
+                      type="email"
+                      value={newEventForm.contact_email}
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, contact_email: e.target.value }))}
+                      style={styles.input}
+                      placeholder="marcus@church.org"
                     />
                   </div>
                   <div>
                     <label style={styles.label}>Phone</label>
-                    <input 
-                      type="tel" 
-                      value={newEventForm.contact_phone} 
-                      onChange={(e) => setNewEventForm(prev => ({ ...prev, contact_phone: e.target.value }))} 
-                      style={styles.input} 
-                      placeholder="(214) 555-0142" 
+                    <input
+                      type="tel"
+                      value={newEventForm.contact_phone}
+                      onChange={(e) => setNewEventForm(prev => ({ ...prev, contact_phone: e.target.value }))}
+                      style={styles.input}
+                      placeholder="(214) 555-0142"
                     />
                   </div>
                 </div>
@@ -4359,15 +4368,15 @@ export default function PulpitApp() {
               {/* Compensation */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Compensation</h4>
-                
+
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Honorarium</label>
-                  <input 
-                    type="text" 
-                    value={newEventForm.honorarium} 
-                    onChange={(e) => setNewEventForm(prev => ({ ...prev, honorarium: e.target.value }))} 
-                    style={styles.input} 
-                    placeholder="$1,500" 
+                  <input
+                    type="text"
+                    value={newEventForm.honorarium}
+                    onChange={(e) => setNewEventForm(prev => ({ ...prev, honorarium: e.target.value }))}
+                    style={styles.input}
+                    placeholder="$1,500"
                   />
                 </div>
               </div>
@@ -4375,19 +4384,19 @@ export default function PulpitApp() {
               {/* Notes */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Notes</h4>
-                
-                <textarea 
-                  value={newEventForm.notes} 
-                  onChange={(e) => setNewEventForm(prev => ({ ...prev, notes: e.target.value }))} 
-                  style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} 
-                  placeholder="Any additional details about this event..." 
+
+                <textarea
+                  value={newEventForm.notes}
+                  onChange={(e) => setNewEventForm(prev => ({ ...prev, notes: e.target.value }))}
+                  style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }}
+                  placeholder="Any additional details about this event..."
                 />
               </div>
 
               {/* File Attachments */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>Attachments</h4>
-                
+
                 {/* Attached Files List */}
                 {eventAttachments.length > 0 && (
                   <div style={{ marginBottom: '16px' }}>
@@ -4404,7 +4413,7 @@ export default function PulpitApp() {
                             </p>
                           </div>
                         </div>
-                        <button 
+                        <button
                           onClick={() => removeEventAttachment(index)}
                           style={{ background: 'transparent', border: 'none', color: 'rgba(239,68,68,0.7)', cursor: 'pointer', padding: '8px' }}
                         >
@@ -4414,19 +4423,19 @@ export default function PulpitApp() {
                     ))}
                   </div>
                 )}
-                
+
                 {/* Upload Button */}
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '10px', 
-                  padding: '16px 20px', 
-                  background: 'rgba(247,243,233,0.03)', 
-                  border: '1px dashed rgba(247,243,233,0.2)', 
-                  borderRadius: '10px', 
-                  cursor: uploadingAttachment ? 'not-allowed' : 'pointer', 
-                  color: 'rgba(247,243,233,0.6)', 
+                  gap: '10px',
+                  padding: '16px 20px',
+                  background: 'rgba(247,243,233,0.03)',
+                  border: '1px dashed rgba(247,243,233,0.2)',
+                  borderRadius: '10px',
+                  cursor: uploadingAttachment ? 'not-allowed' : 'pointer',
+                  color: 'rgba(247,243,233,0.6)',
                   fontSize: '13px',
                   transition: 'all 0.2s',
                   opacity: uploadingAttachment ? 0.5 : 1,
@@ -4458,19 +4467,19 @@ export default function PulpitApp() {
                         padding: '10px 20px',
                         borderRadius: '8px',
                         border: newEventForm.status === status ? '1px solid' : '1px solid rgba(247,243,233,0.15)',
-                        background: newEventForm.status === status 
-                          ? status === 'confirmed' ? 'rgba(76,175,80,0.2)' 
-                          : status === 'pending' ? 'rgba(255,180,0,0.2)' 
+                        background: newEventForm.status === status
+                          ? status === 'confirmed' ? 'rgba(76,175,80,0.2)'
+                          : status === 'pending' ? 'rgba(255,180,0,0.2)'
                           : 'rgba(247,243,233,0.1)'
                           : 'transparent',
-                        borderColor: newEventForm.status === status 
-                          ? status === 'confirmed' ? 'rgba(76,175,80,0.5)' 
-                          : status === 'pending' ? 'rgba(255,180,0,0.5)' 
+                        borderColor: newEventForm.status === status
+                          ? status === 'confirmed' ? 'rgba(76,175,80,0.5)'
+                          : status === 'pending' ? 'rgba(255,180,0,0.5)'
                           : 'rgba(247,243,233,0.3)'
                           : 'rgba(247,243,233,0.15)',
-                        color: newEventForm.status === status 
-                          ? status === 'confirmed' ? '#4CAF50' 
-                          : status === 'pending' ? '#FFB400' 
+                        color: newEventForm.status === status
+                          ? status === 'confirmed' ? '#4CAF50'
+                          : status === 'pending' ? '#FFB400'
                           : '#F7F3E9'
                           : 'rgba(247,243,233,0.5)',
                         cursor: 'pointer',
@@ -4487,15 +4496,15 @@ export default function PulpitApp() {
 
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '12px' }}>
-                <button 
-                  onClick={() => setShowAddEvent(false)} 
+                <button
+                  onClick={() => setShowAddEvent(false)}
                   style={{ ...styles.buttonSecondary, flex: 1 }}
                 >
                   Cancel
                 </button>
-                <button 
-                  onClick={handleAddManualEvent} 
-                  disabled={addingEvent || !newEventForm.event_name || !newEventForm.event_date} 
+                <button
+                  onClick={handleAddManualEvent}
+                  disabled={addingEvent || !newEventForm.event_name || !newEventForm.event_date}
                   style={{ ...styles.button, flex: 1, opacity: addingEvent || !newEventForm.event_name || !newEventForm.event_date ? 0.5 : 1 }}
                 >
                   {addingEvent ? 'ADDING...' : 'ADD EVENT'}
@@ -4522,7 +4531,7 @@ export default function PulpitApp() {
               {/* Church/Organization Info */}
               <div style={{ marginBottom: '32px' }}>
                 <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Church / Organization Information</h4>
-                
+
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Church/Organization Name *</label>
                   <input type="text" value={speakingRequestForm.church_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_name: e.target.value }))} style={styles.input} required />
@@ -4565,7 +4574,7 @@ export default function PulpitApp() {
               {/* Event Details */}
               <div style={{ marginBottom: '32px' }}>
                 <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Event Details</h4>
-                
+
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Event/Venue Address *</label>
                   <input type="text" value={speakingRequestForm.venue_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Street Address" required />
@@ -4676,7 +4685,7 @@ export default function PulpitApp() {
               {/* Compensation & Expenses */}
               <div style={{ marginBottom: '32px' }}>
                 <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Compensation & Expenses</h4>
-                
+
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Honorarium Amount *</label>
                   <input type="text" value={speakingRequestForm.honorarium} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, honorarium: e.target.value }))} style={styles.input} placeholder="e.g. $1,500" required />
@@ -4727,9 +4736,9 @@ export default function PulpitApp() {
                 <button onClick={() => setShowSpeakingRequestForm(false)} style={{ ...styles.buttonSecondary, flex: 1 }}>
                   Cancel
                 </button>
-                <button 
-                  onClick={handleSubmitSpeakingRequest} 
-                  disabled={submittingRequest || !speakingRequestForm.church_name || !speakingRequestForm.contact_email || !speakingRequestForm.event_date} 
+                <button
+                  onClick={handleSubmitSpeakingRequest}
+                  disabled={submittingRequest || !speakingRequestForm.church_name || !speakingRequestForm.contact_email || !speakingRequestForm.event_date}
                   style={{ ...styles.button, flex: 2, opacity: submittingRequest ? 0.6 : 1 }}
                 >
                   {submittingRequest ? 'SUBMITTING...' : 'SUBMIT REQUEST'}
