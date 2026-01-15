@@ -771,12 +771,12 @@ export default function PulpitApp() {
       await apiCall(DATA_API, `/user/${currentUser.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          profile_photo: imageUrl,
+          path: imageUrl,  // Xano user table uses 'path' for profile photo
           name: currentUser.name  // Xano requires name field
         }),
       });
 
-      setCurrentUser(prev => ({ ...prev, profile_photo: imageUrl }));
+      setCurrentUser(prev => ({ ...prev, profile_photo: imageUrl, path: imageUrl }));
       alert('Profile picture updated!');
     } catch (error) {
       console.error('Profile picture upload error:', error);
@@ -2056,9 +2056,9 @@ export default function PulpitApp() {
         {/* Hero Section */}
         <section style={{ padding: isMobile ? '48px 20px' : '80px 48px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
           {/* Profile Photo */}
-          {currentUser?.profile_photo ? (
+          {(currentUser?.profile_photo || currentUser?.path) ? (
             <img
-              src={currentUser.profile_photo}
+              src={currentUser.profile_photo || currentUser.path}
               alt={currentUser?.name || 'Speaker'}
               style={{
                 width: isMobile ? '140px' : '180px',
@@ -3158,9 +3158,9 @@ export default function PulpitApp() {
                 <div style={{ display: 'flex', gap: '24px', marginBottom: '32px', alignItems: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
                   {/* Profile Picture */}
                   <div style={{ position: 'relative' }}>
-                    {currentUser?.profile_photo ? (
+                    {(currentUser?.profile_photo || currentUser?.path) ? (
                       <img
-                        src={currentUser.profile_photo}
+                        src={currentUser.profile_photo || currentUser.path}
                         alt="Profile"
                         style={{
                           width: isMobile ? '100px' : '120px',
