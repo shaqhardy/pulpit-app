@@ -4316,7 +4316,6 @@ export default function PulpitApp() {
                     placeholder="200" 
                   />
                 </div>
-              </div>
 
               {/* Contact Info */}
               <div style={{ marginBottom: '24px' }}>
