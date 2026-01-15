@@ -1916,29 +1916,44 @@ export default function PulpitApp() {
         {/* Header */}
         <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '16px 20px' : '24px 48px', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '24px' : '28px', letterSpacing: '2px', color: '#F7F3E9' }}>PULPIT</div>
-          <button onClick={() => setCurrentView('booking')} style={{ ...styles.button, padding: isMobile ? '10px 20px' : '14px 28px', fontSize: isMobile ? '12px' : '13px' }}>
-            BOOK NOW
+          <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.button, padding: isMobile ? '10px 20px' : '14px 28px', fontSize: isMobile ? '12px' : '13px' }}>
+            BOOK SHAQ
           </button>
         </nav>
 
         {/* Hero Section */}
         <section style={{ padding: isMobile ? '48px 20px' : '80px 48px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
           {/* Profile Photo */}
-          <div style={{ 
-            width: isMobile ? '140px' : '180px', 
-            height: isMobile ? '140px' : '180px', 
-            background: 'linear-gradient(135deg, #535E4A, #3d4638)', 
-            borderRadius: '50%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            margin: '0 auto 32px',
-            fontSize: isMobile ? '48px' : '64px',
-            fontWeight: '600',
-            color: '#F7F3E9',
-          }}>
-            {currentUser?.name?.charAt(0) || 'S'}
-          </div>
+          {currentUser?.profile_photo ? (
+            <img 
+              src={currentUser.profile_photo} 
+              alt={currentUser?.name || 'Speaker'} 
+              style={{ 
+                width: isMobile ? '140px' : '180px', 
+                height: isMobile ? '140px' : '180px', 
+                borderRadius: '50%', 
+                objectFit: 'cover',
+                margin: '0 auto 32px',
+                border: '4px solid rgba(83,94,74,0.5)',
+              }} 
+            />
+          ) : (
+            <div style={{ 
+              width: isMobile ? '140px' : '180px', 
+              height: isMobile ? '140px' : '180px', 
+              background: 'linear-gradient(135deg, #535E4A, #3d4638)', 
+              borderRadius: '50%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              margin: '0 auto 32px',
+              fontSize: isMobile ? '48px' : '64px',
+              fontWeight: '600',
+              color: '#F7F3E9',
+            }}>
+              {currentUser?.name?.charAt(0) || 'S'}
+            </div>
+          )}
 
           <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', letterSpacing: '3px', marginBottom: '16px', color: '#F7F3E9' }}>
             {currentUser?.name || 'Speaker Name'}
@@ -2051,7 +2066,7 @@ export default function PulpitApp() {
             <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'rgba(247,243,233,0.6)', marginBottom: '32px', lineHeight: '1.7' }}>
               Submit a speaking request and let's discuss how I can serve your church or organization.
             </p>
-            <button onClick={() => setCurrentView('booking')} style={{ ...styles.button, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '13px' : '15px' }}>
+            <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.button, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '13px' : '15px' }}>
               SUBMIT A REQUEST
             </button>
           </div>
@@ -2312,9 +2327,14 @@ export default function PulpitApp() {
         {/* Header */}
         <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '16px 20px' : '24px 48px' }}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '24px' : '28px', letterSpacing: '2px', color: '#F7F3E9' }}>PULPIT</div>
-          <button onClick={() => setCurrentView('auth')} style={styles.button}>
-            LOG IN
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.button, padding: isMobile ? '10px 16px' : '14px 24px', fontSize: isMobile ? '11px' : '13px' }}>
+              BOOK SHAQ
+            </button>
+            <button onClick={() => setCurrentView('auth')} style={{ ...styles.buttonSecondary, padding: isMobile ? '10px 16px' : '14px 24px', fontSize: isMobile ? '11px' : '13px' }}>
+              LOG IN
+            </button>
+          </div>
         </nav>
 
         {/* Hero */}
