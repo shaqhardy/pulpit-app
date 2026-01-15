@@ -54,7 +54,7 @@ const apiCall = async (baseUrl, endpoint, options = {}) => {
 const uploadFile = async (file, endpoint = '/upload/attachment') => {
   const token = getToken();
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('content', file);
   
   const response = await fetch(`${DATA_API}${endpoint}`, {
     method: 'POST',
