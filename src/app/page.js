@@ -1370,6 +1370,25 @@ export default function PulpitApp() {
     }
   };
 
+  // Copy to clipboard helper
+  const handleCopyProfileUrl = async () => {
+    const url = `https://www.getpulpit.app/${currentUser?.name?.toLowerCase().replace(/\s+/g, '-') || 'your-name'}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert('Profile URL copied to clipboard!');
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = url;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      alert('Profile URL copied to clipboard!');
+    }
+  };
+
   const navItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard' },
     { id: 'requests', icon: Briefcase, label: 'Requests' },
@@ -2078,6 +2097,92 @@ export default function PulpitApp() {
             © {new Date().getFullYear()} {currentUser?.name || 'Speaker'} • Powered by Pulpit
           </p>
         </footer>
+
+        {/* Speaking Request Form Modal */}
+        {showSpeakingRequestForm && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
+            <div style={{ ...styles.card, background: '#0A0A0A', maxWidth: '700px', width: '100%', margin: '40px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div>
+                  <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>SPEAKING REQUEST FORM</h2>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px', marginTop: '4px' }}>Preaching the Word. Unpacking Scripture. Cultivating Faithfulness.</p>
+                </div>
+                <button onClick={() => setShowSpeakingRequestForm(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer' }}>
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Simplified Form for Public Pages */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Church/Organization Name *</label>
+                  <input type="text" value={speakingRequestForm.church_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_name: e.target.value }))} style={styles.input} required />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Your First Name *</label>
+                    <input type="text" value={speakingRequestForm.contact_first_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_first_name: e.target.value }))} style={styles.input} required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Your Last Name *</label>
+                    <input type="text" value={speakingRequestForm.contact_last_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_last_name: e.target.value }))} style={styles.input} required />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Your Email *</label>
+                    <input type="email" value={speakingRequestForm.contact_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_email: e.target.value }))} style={styles.input} required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Your Phone</label>
+                    <input type="tel" value={speakingRequestForm.contact_phone} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_phone: e.target.value }))} style={styles.input} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Event Start Date *</label>
+                    <input type="date" value={speakingRequestForm.event_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_date: e.target.value }))} style={styles.input} required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Event End Date</label>
+                    <input type="date" value={speakingRequestForm.event_end_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_end_date: e.target.value }))} style={styles.input} />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Theme / What You're Looking For *</label>
+                  <textarea value={speakingRequestForm.event_theme} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_theme: e.target.value }))} style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} placeholder="Describe your event and what you hope to accomplish..." required />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Expected Attendance *</label>
+                    <input type="number" value={speakingRequestForm.expected_attendance} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expected_attendance: e.target.value }))} style={styles.input} placeholder="e.g. 200" required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Honorarium</label>
+                    <input type="text" value={speakingRequestForm.honorarium} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, honorarium: e.target.value }))} style={styles.input} placeholder="e.g. $1,500" />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Additional Comments</label>
+                  <textarea value={speakingRequestForm.additional_comments} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, additional_comments: e.target.value }))} style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }} placeholder="Any other details..." />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={() => setShowSpeakingRequestForm(false)} style={{ ...styles.buttonSecondary, flex: 1 }}>Cancel</button>
+                <button onClick={handleSubmitSpeakingRequest} disabled={submittingRequest || !speakingRequestForm.church_name || !speakingRequestForm.contact_email || !speakingRequestForm.event_date} style={{ ...styles.button, flex: 2, opacity: submittingRequest ? 0.6 : 1 }}>
+                  {submittingRequest ? 'SUBMITTING...' : 'SUBMIT REQUEST'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -2405,6 +2510,92 @@ export default function PulpitApp() {
             © {new Date().getFullYear()} Pulpit • Built for speakers, by speakers
           </p>
         </footer>
+
+        {/* Speaking Request Form Modal */}
+        {showSpeakingRequestForm && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
+            <div style={{ ...styles.card, background: '#0A0A0A', maxWidth: '700px', width: '100%', margin: '40px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div>
+                  <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '24px', letterSpacing: '1px', color: '#F7F3E9' }}>SPEAKING REQUEST FORM</h2>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '13px', marginTop: '4px' }}>Preaching the Word. Unpacking Scripture. Cultivating Faithfulness.</p>
+                </div>
+                <button onClick={() => setShowSpeakingRequestForm(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer' }}>
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Simplified Form for Public Pages */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Church/Organization Name *</label>
+                  <input type="text" value={speakingRequestForm.church_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_name: e.target.value }))} style={styles.input} required />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Your First Name *</label>
+                    <input type="text" value={speakingRequestForm.contact_first_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_first_name: e.target.value }))} style={styles.input} required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Your Last Name *</label>
+                    <input type="text" value={speakingRequestForm.contact_last_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_last_name: e.target.value }))} style={styles.input} required />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Your Email *</label>
+                    <input type="email" value={speakingRequestForm.contact_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_email: e.target.value }))} style={styles.input} required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Your Phone</label>
+                    <input type="tel" value={speakingRequestForm.contact_phone} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_phone: e.target.value }))} style={styles.input} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Event Start Date *</label>
+                    <input type="date" value={speakingRequestForm.event_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_date: e.target.value }))} style={styles.input} required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Event End Date</label>
+                    <input type="date" value={speakingRequestForm.event_end_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_end_date: e.target.value }))} style={styles.input} />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Theme / What You're Looking For *</label>
+                  <textarea value={speakingRequestForm.event_theme} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_theme: e.target.value }))} style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} placeholder="Describe your event and what you hope to accomplish..." required />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={styles.label}>Expected Attendance *</label>
+                    <input type="number" value={speakingRequestForm.expected_attendance} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expected_attendance: e.target.value }))} style={styles.input} placeholder="e.g. 200" required />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Honorarium</label>
+                    <input type="text" value={speakingRequestForm.honorarium} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, honorarium: e.target.value }))} style={styles.input} placeholder="e.g. $1,500" />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Additional Comments</label>
+                  <textarea value={speakingRequestForm.additional_comments} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, additional_comments: e.target.value }))} style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }} placeholder="Any other details..." />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={() => setShowSpeakingRequestForm(false)} style={{ ...styles.buttonSecondary, flex: 1 }}>Cancel</button>
+                <button onClick={handleSubmitSpeakingRequest} disabled={submittingRequest || !speakingRequestForm.church_name || !speakingRequestForm.contact_email || !speakingRequestForm.event_date} style={{ ...styles.button, flex: 2, opacity: submittingRequest ? 0.6 : 1 }}>
+                  {submittingRequest ? 'SUBMITTING...' : 'SUBMIT REQUEST'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -3910,8 +4101,8 @@ export default function PulpitApp() {
                     <div style={{ marginBottom: '24px' }}>
                       <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '14px', marginBottom: '16px', fontWeight: '500' }}>Your Public Profile URL</h4>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <input type="text" value={`getpulpit.app/${currentUser?.name?.toLowerCase().replace(/\s+/g, '-') || 'your-name'}`} readOnly style={{ ...styles.input, flex: 1 }} />
-                        <button style={{ ...styles.buttonSecondary, display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 16px' }}>
+                        <input type="text" value={`www.getpulpit.app/${currentUser?.name?.toLowerCase().replace(/\s+/g, '-') || 'your-name'}`} readOnly style={{ ...styles.input, flex: 1 }} />
+                        <button onClick={handleCopyProfileUrl} style={{ ...styles.buttonSecondary, display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 16px' }}>
                           <Share2 size={16} /> Copy
                         </button>
                       </div>
