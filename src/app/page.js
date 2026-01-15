@@ -468,6 +468,7 @@ export default function PulpitApp() {
     }
   }, []);
 
+  // Load speaker data for public pages (no auth required)
   const loadPublicSpeakerData = async () => {
     try {
       const response = await fetch(DATA_API + '/user/1');
@@ -667,10 +668,9 @@ export default function PulpitApp() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file size - max 2MB
-    const maxSize = 2 * 1024 * 1024;
-    if (file.size > maxSize) {
-      alert('File too large (' + (file.size / 1024 / 1024).toFixed(1) + 'MB). Please use an image under 2MB. Tip: Use squoosh.app to compress.');
+    // Check file size - max 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image too large (' + (file.size / 1024 / 1024).toFixed(1) + 'MB). Please use an image under 2MB.\n\nTip: Use squoosh.app to compress.');
       e.target.value = '';
       return;
     }
@@ -678,10 +678,18 @@ export default function PulpitApp() {
     setUploadingProfilePic(true);
     try {
       const uploadResult = await uploadFile(file, '/upload/image');
-      const imageUrl = uploadResult.path || uploadResult.url || uploadResult.file?.url;
+      console.log('Upload result:', uploadResult);
+
+      // Xano returns different formats - handle all possibilities
+      let imageUrl = uploadResult.path || uploadResult.url || uploadResult.file?.url || uploadResult.file?.path;
+
+      // If it's a relative path, prepend Xano base URL
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        imageUrl = 'https://x8ki-letl-twmt.n7.xano.io' + imageUrl;
+      }
 
       if (!imageUrl) {
-        throw new Error('No image URL returned');
+        throw new Error('No image URL in response');
       }
 
       // Update user profile with new image
@@ -691,6 +699,7 @@ export default function PulpitApp() {
       });
 
       setCurrentUser(prev => ({ ...prev, profile_photo: imageUrl }));
+      alert('Profile picture updated!');
     } catch (error) {
       console.error('Failed to upload profile picture:', error);
       alert('Upload failed: ' + error.message);
@@ -1333,7 +1342,7 @@ export default function PulpitApp() {
 
     try {
       const payload = {
-        speaker_user_id: 2,
+        speaker_user_id: 1,
         event_name: bookingForm.churchName,
         church_name: bookingForm.churchName,
         location: `${bookingForm.eventCity}, ${bookingForm.eventState}`,
@@ -2005,16 +2014,17 @@ export default function PulpitApp() {
           </h1>
 
           {currentUser?.tagline && (
-            <p style={{ fontSize: isMobile ? '16px' : '20px', color: 'rgba(247,243,233,0.7)', marginBottom: '16px', fontStyle: 'italic' }}>
+            <p style={{ fontSize: isMobile ? '16px' : '20px', color: 'rgba(247,243,233,0.7)', marginBottom: '12px', fontStyle: 'italic' }}>
               {currentUser.tagline}
             </p>
           )}
 
           <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'rgba(247,243,233,0.5)', marginBottom: '24px' }}>
+            <MapPin size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
             {displayLocation}
           </p>
 
-          <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.button, padding: isMobile ? '14px 32px' : '16px 48px', fontSize: isMobile ? '14px' : '15px', marginBottom: '32px' }}>
+          <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.button, padding: isMobile ? '16px 40px' : '18px 56px', fontSize: isMobile ? '14px' : '16px', marginBottom: '40px' }}>
             BOOK SHAQ
           </button>
 
@@ -4350,7 +4360,6 @@ export default function PulpitApp() {
                     placeholder="200"
                   />
                 </div>
-              </div>
 
               {/* Contact Info */}
               <div style={{ marginBottom: '24px' }}>
