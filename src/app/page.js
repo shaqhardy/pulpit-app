@@ -32,43 +32,90 @@ const apiCall = async (baseUrl, endpoint, options = {}) => {
   const token = getToken();
 
   const headers = {
-    'Content-Type': 'application/json',
+    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token && { Authorization: `Bearer ${token}` }),
     ...options.headers,
   };
 
-  const response = await fetch(`${baseUrl}${endpoint}`, {
+  const res = await fetch(`${baseUrl}${endpoint}`, {
     ...options,
     headers,
   });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || 'Request failed');
+  const contentType = res.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+
+  // Read body safely (some Xano endpoints return empty body on success)
+  const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => null);
+
+  if (!res.ok) {
+    // Xano often returns { message } or { error } or { detail }
+    const msg =
+      (data && typeof data === 'object' && (data.message || data.error || data.detail)) ||
+      (typeof data === 'string' && data) ||
+      `Request failed (${res.status})`;
+
+    throw new Error(msg);
   }
 
-  return response.json();
+  return data;
+};
+
+// Helper functions for Xano file URLs
+const toAbsoluteXanoUrl = (u) => {
+  if (!u) return null;
+  if (typeof u !== 'string') return null;
+  if (u.startsWith('http')) return u;
+  // Xano commonly returns "/vault/..." or "/storage/..."
+  return `https://x8ki-letl-twmt.n7.xano.io${u}`;
+};
+
+const extractFileUrl = (uploadResult) => {
+  if (!uploadResult) return null;
+
+  // Try common shapes Xano uses
+  const raw =
+    uploadResult.url ||
+    uploadResult.path ||
+    uploadResult.file?.url ||
+    uploadResult.file?.path ||
+    uploadResult.attachment?.url ||
+    uploadResult.attachment?.path;
+
+  return toAbsoluteXanoUrl(raw);
 };
 
 // File upload function for Xano
 const uploadFile = async (file, endpoint = '/upload/attachment') => {
   const token = getToken();
   const formData = new FormData();
+
+  // Use BOTH keys for compatibility (Xano templates differ)
+  formData.append('file', file);
   formData.append('content', file);
 
-  const response = await fetch(`${DATA_API}${endpoint}`, {
+  const res = await fetch(`${DATA_API}${endpoint}`, {
     method: 'POST',
     headers: {
       ...(token && { Authorization: `Bearer ${token}` }),
+      // DO NOT set Content-Type for FormData
     },
     body: formData,
   });
 
-  if (!response.ok) {
-    throw new Error('File upload failed');
+  const contentType = res.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+  const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => null);
+
+  if (!res.ok) {
+    const msg =
+      (data && typeof data === 'object' && (data.message || data.error || data.detail)) ||
+      (typeof data === 'string' && data) ||
+      `File upload failed (${res.status})`;
+    throw new Error(msg);
   }
 
-  return response.json();
+  return data;
 };
 
 // Styles
@@ -452,31 +499,49 @@ export default function PulpitApp() {
     setDeferredPrompt(null);
   };
 
-  useEffect(() => {
+  // Routing helpers
+  const resolveViewFromUrl = () => {
     const params = new URLSearchParams(window.location.search);
     const path = window.location.pathname;
 
-    if (params.get('book') === '1' || path.includes('/book')) {
-      setCurrentView('booking');
+    if (params.get('book') === '1' || path.includes('/book')) return 'booking';
+    if (params.get('profile') === '1' || path.includes('/profile')) return 'publicProfile';
+    if (path.includes('/login') || path.includes('/signup') || path.includes('/auth')) return 'auth';
+
+    return 'landing';
+  };
+
+  const navigate = (view, url) => {
+    setCurrentView(view);
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', url);
+    }
+  };
+
+  useEffect(() => {
+    const view = resolveViewFromUrl();
+    setCurrentView(view);
+
+    if (view === 'booking' || view === 'publicProfile') {
       loadPublicSpeakerData();
-      return;
+    } else if (view === 'auth') {
+      // nothing else
+    } else {
+      const token = localStorage.getItem('authToken');
+      if (token) loadUserData();
     }
 
-    if (params.get('profile') === '1' || path.includes('/profile')) {
-      setCurrentView('publicProfile');
-      loadPublicSpeakerData();
-      return;
-    }
+    const onPopState = () => {
+      const nextView = resolveViewFromUrl();
+      setCurrentView(nextView);
 
-    if (path.includes('/login') || path.includes('/signup') || path.includes('/auth')) {
-      setCurrentView('auth');
-      return;
-    }
+      if (nextView === 'booking' || nextView === 'publicProfile') {
+        loadPublicSpeakerData();
+      }
+    };
 
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      loadUserData();
-    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   // Load speaker data for public pages (no auth required)
@@ -658,13 +723,13 @@ export default function PulpitApp() {
         name: file.name,
         size: file.size,
         type: file.type.includes('pdf') ? 'itinerary' : file.type.includes('image') ? 'image' : 'document',
-        url: uploadResult.path || uploadResult.url || uploadResult.file?.url,
+        url: extractFileUrl(uploadResult),
         file: uploadResult,
       };
       setEventAttachments(prev => [...prev, fileData]);
     } catch (error) {
       console.error('Failed to attach file:', error);
-      alert('Failed to upload file. Please try again.');
+      alert('Failed to upload file: ' + error.message);
     }
     setUploadingAttachment(false);
     e.target.value = '';
@@ -689,19 +754,9 @@ export default function PulpitApp() {
     setUploadingProfilePic(true);
     try {
       const uploadResult = await uploadFile(file, '/upload/image');
-      console.log('Upload result:', uploadResult);
+      const imageUrl = extractFileUrl(uploadResult);
 
-      // Xano returns different formats - handle all possibilities
-      let imageUrl = uploadResult.path || uploadResult.url || uploadResult.file?.url || uploadResult.file?.path;
-
-      // If it's a relative path, prepend Xano base URL
-      if (imageUrl && !imageUrl.startsWith('http')) {
-        imageUrl = 'https://x8ki-letl-twmt.n7.xano.io' + imageUrl;
-      }
-
-      if (!imageUrl) {
-        throw new Error('No image URL in response');
-      }
+      if (!imageUrl) throw new Error('Upload succeeded but no image URL was returned.');
 
       // Update user profile with new image
       await apiCall(DATA_API, `/user/${currentUser.id}`, {
@@ -850,7 +905,7 @@ export default function PulpitApp() {
     try {
       // Upload file to Xano
       const uploadResult = await uploadFile(file);
-      const fileUrl = uploadResult.path || uploadResult.url || uploadResult.file?.url;
+      const fileUrl = extractFileUrl(uploadResult);
 
       await apiCall(DATA_API, '/document', {
         method: 'POST',
@@ -869,7 +924,7 @@ export default function PulpitApp() {
       setDocuments(Array.isArray(documentsData) ? documentsData : []);
     } catch (error) {
       console.error('Failed to upload document:', error);
-      alert('Failed to upload document. Please try again.');
+      alert('Failed to upload document: ' + error.message);
     }
     setUploadingDoc(false);
   };
@@ -1300,7 +1355,7 @@ export default function PulpitApp() {
     localStorage.removeItem('authToken');
     setIsAuthenticated(false);
     setCurrentUser(null);
-    setCurrentView('landing');
+    navigate('landing', '/');
   };
 
   const handleStatusUpdate = async (requestId, newStatus) => {
@@ -2258,7 +2313,7 @@ export default function PulpitApp() {
             <p style={{ color: 'rgba(247,243,233,0.7)', marginBottom: '32px', lineHeight: '1.6' }}>
               Thank you for your speaking request. You will receive a response within 3-5 business days.
             </p>
-            <button onClick={() => { setBookingSuccess(false); setCurrentView('landing'); }} style={styles.button}>
+            <button onClick={() => { setBookingSuccess(false); navigate('landing', '/'); }} style={styles.button}>
               BACK TO HOME
             </button>
           </div>
@@ -2494,7 +2549,7 @@ export default function PulpitApp() {
             <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.button, padding: isMobile ? '10px 16px' : '14px 24px', fontSize: isMobile ? '11px' : '13px' }}>
               BOOK SHAQ
             </button>
-            <button onClick={() => setCurrentView('auth')} style={{ ...styles.buttonSecondary, padding: isMobile ? '10px 16px' : '14px 24px', fontSize: isMobile ? '11px' : '13px' }}>
+            <button onClick={() => navigate('auth', '/login')} style={{ ...styles.buttonSecondary, padding: isMobile ? '10px 16px' : '14px 24px', fontSize: isMobile ? '11px' : '13px' }}>
               LOG IN
             </button>
           </div>
@@ -2509,7 +2564,7 @@ export default function PulpitApp() {
             The all-in-one platform for speakers, preachers, and worship leaders to manage bookings, documents, and communications.
           </p>
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => setCurrentView('auth')} style={{ ...styles.button, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '14px' : '15px' }}>
+            <button onClick={() => navigate('auth', '/signup')} style={{ ...styles.button, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '14px' : '15px' }}>
               GET STARTED
             </button>
             <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.buttonSecondary, padding: isMobile ? '16px 32px' : '18px 48px', fontSize: isMobile ? '14px' : '15px' }}>
@@ -2727,7 +2782,7 @@ export default function PulpitApp() {
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '16px' }}>
-            <button onClick={() => setCurrentView('landing')} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '13px' }}>
+            <button onClick={() => navigate('landing', '/')} style={{ background: 'transparent', border: 'none', color: 'rgba(247,243,233,0.5)', cursor: 'pointer', fontSize: '13px' }}>
               ← Back to home
             </button>
           </div>
