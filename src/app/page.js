@@ -90,17 +90,14 @@ const uploadFile = async (file, endpoint = '/upload/attachment') => {
   const token = getToken();
   const formData = new FormData();
 
-  // Use multiple keys for compatibility (Xano templates differ)
-  formData.append('file', file);
+  // Xano expects 'content' as the file field name
   formData.append('content', file);
-  // Some Xano endpoints expect 'path' as the file field
-  formData.append('path', file);
 
   const res = await fetch(`${DATA_API}${endpoint}`, {
     method: 'POST',
     headers: {
       ...(token && { Authorization: `Bearer ${token}` }),
-      // DO NOT set Content-Type for FormData
+      // DO NOT set Content-Type for FormData - browser sets it with boundary
     },
     body: formData,
   });
@@ -759,10 +756,16 @@ export default function PulpitApp() {
 
     setUploadingProfilePic(true);
     try {
+      console.log('Uploading file:', file.name, file.type, file.size);
       const uploadResult = await uploadFile(file, '/upload/image');
+      console.log('Upload result:', uploadResult);
+      
       const imageUrl = extractFileUrl(uploadResult);
+      console.log('Extracted URL:', imageUrl);
 
-      if (!imageUrl) throw new Error('Upload succeeded but no image URL was returned.');
+      if (!imageUrl) {
+        throw new Error('Upload succeeded but no image URL was returned. Response: ' + JSON.stringify(uploadResult));
+      }
 
       // Update user profile with new image
       await apiCall(DATA_API, `/user/${currentUser.id}`, {
@@ -776,7 +779,7 @@ export default function PulpitApp() {
       setCurrentUser(prev => ({ ...prev, profile_photo: imageUrl }));
       alert('Profile picture updated!');
     } catch (error) {
-      console.error('Failed to upload profile picture:', error);
+      console.error('Profile picture upload error:', error);
       alert('Upload failed: ' + error.message);
     }
     setUploadingProfilePic(false);
