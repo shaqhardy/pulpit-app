@@ -90,9 +90,11 @@ const uploadFile = async (file, endpoint = '/upload/attachment') => {
   const token = getToken();
   const formData = new FormData();
 
-  // Use BOTH keys for compatibility (Xano templates differ)
+  // Use multiple keys for compatibility (Xano templates differ)
   formData.append('file', file);
   formData.append('content', file);
+  // Some Xano endpoints expect 'path' as the file field
+  formData.append('path', file);
 
   const res = await fetch(`${DATA_API}${endpoint}`, {
     method: 'POST',
@@ -569,6 +571,10 @@ export default function PulpitApp() {
       }
       setIsAuthenticated(true);
       setCurrentView('app');
+      // Update URL to root when authenticated
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', '/');
+      }
       loadAllData();
       // Load settings from localStorage
       const savedSettings = localStorage.getItem('notificationSettings');
