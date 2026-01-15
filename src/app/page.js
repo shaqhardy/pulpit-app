@@ -65,7 +65,8 @@ const uploadFile = async (file, endpoint = '/upload/attachment') => {
   });
 
   if (!response.ok) {
-    throw new Error('File upload failed');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `Upload failed (${response.status})`);
   }
 
   return response.json();
@@ -456,8 +457,10 @@ export default function PulpitApp() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('book') === '1' || window.location.pathname.includes('/book')) {
       setCurrentView('booking');
+      loadPublicSpeakerData();
     } else if (params.get('profile') === '1' || window.location.pathname.includes('/profile')) {
       setCurrentView('publicProfile');
+      loadPublicSpeakerData();
     } else {
       const token = localStorage.getItem('authToken');
       if (token) {
@@ -465,6 +468,19 @@ export default function PulpitApp() {
       }
     }
   }, []);
+
+  // Load public speaker data (for public profile and booking pages)
+  const loadPublicSpeakerData = async () => {
+    try {
+      // Load speaker ID 1 (Shaq) for public pages
+      const speakerData = await fetch(`${DATA_API}/user/1`).then(r => r.json()).catch(() => null);
+      if (speakerData) {
+        setCurrentUser(speakerData);
+      }
+    } catch (error) {
+      console.error('Failed to load speaker data:', error);
+    }
+  };
 
   const loadUserData = async () => {
     try {
@@ -653,10 +669,17 @@ export default function PulpitApp() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validate file size (max 2MB for Xano)
+    const maxSize = 2 * 1024 * 1024; // 2MB
     if (file.size > maxSize) {
-      alert(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please use an image under 5MB.`);
+      alert(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please use an image under 2MB.\n\nTip: Use squoosh.app to compress your image.`);
+      e.target.value = '';
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (JPG, PNG, etc.)');
       e.target.value = '';
       return;
     }
@@ -665,6 +688,10 @@ export default function PulpitApp() {
     try {
       const uploadResult = await uploadFile(file, '/upload/image');
       const imageUrl = uploadResult.path || uploadResult.url || uploadResult.file?.url;
+
+      if (!imageUrl) {
+        throw new Error('No image URL returned from server');
+      }
 
       // Update user profile with new image
       await apiCall(DATA_API, `/user/${currentUser.id}`, {
@@ -675,7 +702,7 @@ export default function PulpitApp() {
       setCurrentUser(prev => ({ ...prev, profile_photo: imageUrl }));
     } catch (error) {
       console.error('Failed to upload profile picture:', error);
-      alert('Failed to upload profile picture. Please try again.');
+      alert(`Upload failed: ${error.message}\n\nTry using a smaller image (under 2MB).`);
     }
     setUploadingProfilePic(false);
     e.target.value = '';
@@ -1936,16 +1963,21 @@ export default function PulpitApp() {
   if (currentView === 'publicProfile') {
     const confirmedEvents = bookingRequests.filter(r => r.status === 'confirmed' || r.status === 'completed');
     const yearsPreaching = currentUser?.year_started ? new Date().getFullYear() - parseInt(currentUser.year_started) : null;
-    const displayLocation = currentUser?.location?.split(',')[0] || 'US';
+    const displayLocation = currentUser?.location || 'Tennessee';
 
     return (
       <div style={{ minHeight: '100vh', background: '#0A0A0A' }}>
         {/* Header */}
         <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '16px 20px' : '24px 48px', borderBottom: '1px solid rgba(247,243,233,0.08)' }}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '24px' : '28px', letterSpacing: '2px', color: '#F7F3E9' }}>PULPIT</div>
-          <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.button, padding: isMobile ? '10px 20px' : '14px 28px', fontSize: isMobile ? '12px' : '13px' }}>
-            BOOK SHAQ
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.button, padding: isMobile ? '10px 16px' : '14px 24px', fontSize: isMobile ? '11px' : '13px' }}>
+              BOOK SHAQ
+            </button>
+            <button onClick={() => setCurrentView('auth')} style={{ ...styles.buttonSecondary, padding: isMobile ? '10px 16px' : '14px 24px', fontSize: isMobile ? '11px' : '13px' }}>
+              LOG IN
+            </button>
+          </div>
         </nav>
 
         {/* Hero Section */}
@@ -1982,15 +2014,25 @@ export default function PulpitApp() {
             </div>
           )}
 
-          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', letterSpacing: '3px', marginBottom: '16px', color: '#F7F3E9' }}>
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', letterSpacing: '3px', marginBottom: '12px', color: '#F7F3E9' }}>
             {currentUser?.name || 'Speaker Name'}
           </h1>
 
           {currentUser?.tagline && (
-            <p style={{ fontSize: isMobile ? '16px' : '20px', color: 'rgba(247,243,233,0.7)', marginBottom: '24px', fontStyle: 'italic' }}>
+            <p style={{ fontSize: isMobile ? '16px' : '20px', color: 'rgba(247,243,233,0.7)', marginBottom: '8px', fontStyle: 'italic' }}>
               {currentUser.tagline}
             </p>
           )}
+
+          <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'rgba(247,243,233,0.5)', marginBottom: '24px' }}>
+            <MapPin size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
+            {displayLocation}
+          </p>
+
+          {/* Book Button - Right under tagline and location */}
+          <button onClick={() => setShowSpeakingRequestForm(true)} style={{ ...styles.button, padding: isMobile ? '14px 32px' : '16px 48px', fontSize: isMobile ? '13px' : '15px', marginBottom: '32px' }}>
+            BOOK SHAQ
+          </button>
 
           {currentUser?.bio && (
             <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'rgba(247,243,233,0.6)', maxWidth: '700px', margin: '0 auto 48px', lineHeight: '1.8' }}>
@@ -2013,12 +2055,6 @@ export default function PulpitApp() {
                 {confirmedEvents.length}
               </p>
               <p style={{ fontSize: isMobile ? '11px' : '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Events</p>
-            </div>
-            <div>
-              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? '32px' : '48px', color: '#535E4A', marginBottom: '8px' }}>
-                {displayLocation}
-              </p>
-              <p style={{ fontSize: isMobile ? '11px' : '14px', color: 'rgba(247,243,233,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>Based In</p>
             </div>
           </div>
         </section>
