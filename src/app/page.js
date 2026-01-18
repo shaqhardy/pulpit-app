@@ -2237,32 +2237,77 @@ export default function PulpitApp() {
                 </button>
               </div>
 
-              {/* Simplified Form for Public Pages */}
-              <div style={{ marginBottom: '24px' }}>
+              {/* Contact Information */}
+              <div style={{ marginBottom: '32px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Contact Information</h4>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Name *</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
+                    <input type="text" value={speakingRequestForm.contact_first_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_first_name: e.target.value }))} style={styles.input} placeholder="First Name" required />
+                    <input type="text" value={speakingRequestForm.contact_last_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_last_name: e.target.value }))} style={styles.input} placeholder="Last Name" required />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Email *</label>
+                  <input type="email" value={speakingRequestForm.contact_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_email: e.target.value }))} style={styles.input} required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Phone</label>
+                  <input type="tel" value={speakingRequestForm.contact_phone} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_phone: e.target.value }))} style={styles.input} placeholder="(000) 000-0000" />
+                </div>
+
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Church/Organization Name *</label>
                   <input type="text" value={speakingRequestForm.church_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_name: e.target.value }))} style={styles.input} required />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={styles.label}>Your First Name *</label>
-                    <input type="text" value={speakingRequestForm.contact_first_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_first_name: e.target.value }))} style={styles.input} required />
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Church/Organization Address</label>
+                  <div style={{ marginBottom: '8px' }}>
+                    <label style={{ ...styles.label, fontSize: '12px', marginBottom: '4px' }}>Country</label>
+                    <select value={speakingRequestForm.church_country} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_country: e.target.value }))} style={styles.input}>
+                      <option value="United States">United States</option>
+                      <option value="Canada">Canada</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
-                  <div>
-                    <label style={styles.label}>Your Last Name *</label>
-                    <input type="text" value={speakingRequestForm.contact_last_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_last_name: e.target.value }))} style={styles.input} required />
+                  <input type="text" value={speakingRequestForm.church_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 1" required />
+                  <input type="text" value={speakingRequestForm.church_street2} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_street2: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 2" />
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>
+                    <input type="text" value={speakingRequestForm.church_city} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_city: e.target.value }))} style={styles.input} placeholder="City" required />
+                    <input type="text" value={speakingRequestForm.church_state} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_state: e.target.value }))} style={styles.input} placeholder="State" required />
+                    <input type="text" value={speakingRequestForm.church_zip} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_zip: e.target.value }))} style={styles.input} placeholder="ZIP Code" required />
                   </div>
                 </div>
+              </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={styles.label}>Your Email *</label>
-                    <input type="email" value={speakingRequestForm.contact_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_email: e.target.value }))} style={styles.input} required />
+              {/* Event Details */}
+              <div style={{ marginBottom: '32px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Event Details</h4>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Address *</label>
+                  <div style={{ marginBottom: '8px' }}>
+                    <label style={{ ...styles.label, fontSize: '12px', marginBottom: '4px' }}>Country</label>
+                    <select value={speakingRequestForm.venue_country} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_country: e.target.value }))} style={styles.input}>
+                      <option value="United States">United States</option>
+                      <option value="Canada">Canada</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
-                  <div>
-                    <label style={styles.label}>Your Phone</label>
-                    <input type="tel" value={speakingRequestForm.contact_phone} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_phone: e.target.value }))} style={styles.input} />
+                  <input type="text" value={speakingRequestForm.venue_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 1" required />
+                  <input type="text" value={speakingRequestForm.venue_street2} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street2: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 2" />
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>
+                    <input type="text" value={speakingRequestForm.venue_city} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_city: e.target.value }))} style={styles.input} placeholder="City" required />
+                    <input type="text" value={speakingRequestForm.venue_state} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_state: e.target.value }))} style={styles.input} placeholder="State" required />
+                    <input type="text" value={speakingRequestForm.venue_zip} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_zip: e.target.value }))} style={styles.input} placeholder="ZIP Code" required />
                   </div>
                 </div>
 
@@ -2272,30 +2317,113 @@ export default function PulpitApp() {
                     <input type="date" value={speakingRequestForm.event_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_date: e.target.value }))} style={styles.input} required />
                   </div>
                   <div>
-                    <label style={styles.label}>Event End Date</label>
-                    <input type="date" value={speakingRequestForm.event_end_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_end_date: e.target.value }))} style={styles.input} />
+                    <label style={styles.label}>Event End Date *</label>
+                    <input type="date" value={speakingRequestForm.event_end_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_end_date: e.target.value }))} style={styles.input} min={speakingRequestForm.event_date} required />
                   </div>
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={styles.label}>Event Theme / What You're Looking For *</label>
-                  <textarea value={speakingRequestForm.event_theme} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_theme: e.target.value }))} style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} placeholder="Describe your event and what you hope to accomplish..." required />
+                  <label style={styles.label}>If this event includes a Sunday, is Sunday required? *</label>
+                  <select value={speakingRequestForm.sunday_requirement} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, sunday_requirement: e.target.value }))} style={styles.input}>
+                    <option value="">Select an option</option>
+                    <option value="Sunday is not required">Sunday is not required</option>
+                    <option value="Sunday is preferred">Sunday is preferred</option>
+                    <option value="Sunday is Required">Sunday is Required</option>
+                  </select>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={styles.label}>Expected Attendance *</label>
-                    <input type="number" value={speakingRequestForm.expected_attendance} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expected_attendance: e.target.value }))} style={styles.input} placeholder="e.g. 200" required />
-                  </div>
-                  <div>
-                    <label style={styles.label}>Honorarium</label>
-                    <input type="text" value={speakingRequestForm.honorarium} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, honorarium: e.target.value }))} style={styles.input} placeholder="e.g. $1,500" />
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Have you done an event with Shaq before? If so, what events/when? *</label>
+                  <input type="text" value={speakingRequestForm.worked_with_before} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, worked_with_before: e.target.value }))} style={styles.input} placeholder="e.g. Youth Conference, March 2024 or N/A if not applicable" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event theme/goal? *</label>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px', marginBottom: '8px' }}>Do you already have a theme and what are you hoping to accomplish?</p>
+                  <textarea value={speakingRequestForm.event_theme} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_theme: e.target.value }))} style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} placeholder="Describe the theme and what you hope to accomplish..." required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Audience *</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px', marginTop: '8px' }}>
+                    {['Church Congregation', 'Adults', "Men's Ministry", 'Young Adults', 'College Students', 'High School Students', 'Middle School Students', 'Other'].map((audience) => (
+                      <label key={audience} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', background: speakingRequestForm.event_audience.includes(audience) ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.event_audience.includes(audience) ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
+                        <input type="checkbox" checked={speakingRequestForm.event_audience.includes(audience)} onChange={(e) => {
+                          if (e.target.checked) {
+                            setSpeakingRequestForm(prev => ({ ...prev, event_audience: [...prev.event_audience, audience] }));
+                          } else {
+                            setSpeakingRequestForm(prev => ({ ...prev, event_audience: prev.event_audience.filter(a => a !== audience) }));
+                          }
+                        }} style={{ accentColor: '#535E4A' }} />
+                        <span style={{ color: '#F7F3E9', fontSize: '13px' }}>{audience}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={styles.label}>Additional Comments</label>
-                  <textarea value={speakingRequestForm.additional_comments} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, additional_comments: e.target.value }))} style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }} placeholder="Any other details..." />
+                  <label style={styles.label}>Anticipated Attendance *</label>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px', marginBottom: '8px' }}>How many people do you anticipate attending?</p>
+                  <input type="number" value={speakingRequestForm.expected_attendance} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expected_attendance: e.target.value }))} style={styles.input} placeholder="e.g. 200" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Is the sale of merch allowed during the event? Would it make sense? *</label>
+                  <select value={speakingRequestForm.merch_allowed} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, merch_allowed: e.target.value }))} style={styles.input}>
+                    <option value="">Select an option</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Attire *</label>
+                  <select value={speakingRequestForm.event_attire} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_attire: e.target.value }))} style={styles.input}>
+                    <option value="">Select an option</option>
+                    <option value="Casual">Casual</option>
+                    <option value="Business Casual">Business Casual</option>
+                    <option value="Suit and Tie">Suit and Tie</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Compensation & Expenses */}
+              <div style={{ marginBottom: '32px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Compensation & Expenses</h4>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Currency *</label>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px', marginBottom: '8px' }}>Honorarium Amount</p>
+                  <input type="text" value={speakingRequestForm.honorarium} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, honorarium: e.target.value }))} style={styles.input} placeholder="$" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Expenses Covered *</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    {['Travel (mileage, rental, gas, car, etc.)', 'Travel for companion (flight)', 'Food & Coffee', 'Parking', 'Hotel'].map((expense) => (
+                      <label key={expense} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', background: speakingRequestForm.expenses_covered.includes(expense) ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.expenses_covered.includes(expense) ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
+                        <input type="checkbox" checked={speakingRequestForm.expenses_covered.includes(expense)} onChange={(e) => {
+                          if (e.target.checked) {
+                            setSpeakingRequestForm(prev => ({ ...prev, expenses_covered: [...prev.expenses_covered, expense] }));
+                          } else {
+                            setSpeakingRequestForm(prev => ({ ...prev, expenses_covered: prev.expenses_covered.filter(ex => ex !== expense) }));
+                          }
+                        }} style={{ accentColor: '#535E4A' }} />
+                        <span style={{ color: '#F7F3E9', fontSize: '13px' }}>{expense}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Email *</label>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px', marginBottom: '8px' }}>Send expenses to...</p>
+                  <input type="email" value={speakingRequestForm.expense_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expense_email: e.target.value }))} style={styles.input} placeholder="expenses@example.com" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Additional Comments?</label>
+                  <textarea value={speakingRequestForm.additional_comments} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, additional_comments: e.target.value }))} style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }} placeholder="Any other details you'd like to share..." />
                 </div>
               </div>
 
@@ -2650,32 +2778,77 @@ export default function PulpitApp() {
                 </button>
               </div>
 
-              {/* Simplified Form for Public Pages */}
-              <div style={{ marginBottom: '24px' }}>
+              {/* Contact Information */}
+              <div style={{ marginBottom: '32px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Contact Information</h4>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Name *</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
+                    <input type="text" value={speakingRequestForm.contact_first_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_first_name: e.target.value }))} style={styles.input} placeholder="First Name" required />
+                    <input type="text" value={speakingRequestForm.contact_last_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_last_name: e.target.value }))} style={styles.input} placeholder="Last Name" required />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Email *</label>
+                  <input type="email" value={speakingRequestForm.contact_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_email: e.target.value }))} style={styles.input} required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Phone</label>
+                  <input type="tel" value={speakingRequestForm.contact_phone} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_phone: e.target.value }))} style={styles.input} placeholder="(000) 000-0000" />
+                </div>
+
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Church/Organization Name *</label>
                   <input type="text" value={speakingRequestForm.church_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_name: e.target.value }))} style={styles.input} required />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={styles.label}>Your First Name *</label>
-                    <input type="text" value={speakingRequestForm.contact_first_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_first_name: e.target.value }))} style={styles.input} required />
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Church/Organization Address</label>
+                  <div style={{ marginBottom: '8px' }}>
+                    <label style={{ ...styles.label, fontSize: '12px', marginBottom: '4px' }}>Country</label>
+                    <select value={speakingRequestForm.church_country} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_country: e.target.value }))} style={styles.input}>
+                      <option value="United States">United States</option>
+                      <option value="Canada">Canada</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
-                  <div>
-                    <label style={styles.label}>Your Last Name *</label>
-                    <input type="text" value={speakingRequestForm.contact_last_name} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_last_name: e.target.value }))} style={styles.input} required />
+                  <input type="text" value={speakingRequestForm.church_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 1" required />
+                  <input type="text" value={speakingRequestForm.church_street2} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_street2: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 2" />
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>
+                    <input type="text" value={speakingRequestForm.church_city} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_city: e.target.value }))} style={styles.input} placeholder="City" required />
+                    <input type="text" value={speakingRequestForm.church_state} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_state: e.target.value }))} style={styles.input} placeholder="State" required />
+                    <input type="text" value={speakingRequestForm.church_zip} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_zip: e.target.value }))} style={styles.input} placeholder="ZIP Code" required />
                   </div>
                 </div>
+              </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={styles.label}>Your Email *</label>
-                    <input type="email" value={speakingRequestForm.contact_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_email: e.target.value }))} style={styles.input} required />
+              {/* Event Details */}
+              <div style={{ marginBottom: '32px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Event Details</h4>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Address *</label>
+                  <div style={{ marginBottom: '8px' }}>
+                    <label style={{ ...styles.label, fontSize: '12px', marginBottom: '4px' }}>Country</label>
+                    <select value={speakingRequestForm.venue_country} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_country: e.target.value }))} style={styles.input}>
+                      <option value="United States">United States</option>
+                      <option value="Canada">Canada</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
-                  <div>
-                    <label style={styles.label}>Your Phone</label>
-                    <input type="tel" value={speakingRequestForm.contact_phone} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, contact_phone: e.target.value }))} style={styles.input} />
+                  <input type="text" value={speakingRequestForm.venue_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 1" required />
+                  <input type="text" value={speakingRequestForm.venue_street2} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street2: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 2" />
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>
+                    <input type="text" value={speakingRequestForm.venue_city} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_city: e.target.value }))} style={styles.input} placeholder="City" required />
+                    <input type="text" value={speakingRequestForm.venue_state} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_state: e.target.value }))} style={styles.input} placeholder="State" required />
+                    <input type="text" value={speakingRequestForm.venue_zip} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_zip: e.target.value }))} style={styles.input} placeholder="ZIP Code" required />
                   </div>
                 </div>
 
@@ -2685,30 +2858,113 @@ export default function PulpitApp() {
                     <input type="date" value={speakingRequestForm.event_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_date: e.target.value }))} style={styles.input} required />
                   </div>
                   <div>
-                    <label style={styles.label}>Event End Date</label>
-                    <input type="date" value={speakingRequestForm.event_end_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_end_date: e.target.value }))} style={styles.input} />
+                    <label style={styles.label}>Event End Date *</label>
+                    <input type="date" value={speakingRequestForm.event_end_date} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_end_date: e.target.value }))} style={styles.input} min={speakingRequestForm.event_date} required />
                   </div>
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={styles.label}>Event Theme / What You're Looking For *</label>
-                  <textarea value={speakingRequestForm.event_theme} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_theme: e.target.value }))} style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} placeholder="Describe your event and what you hope to accomplish..." required />
+                  <label style={styles.label}>If this event includes a Sunday, is Sunday required? *</label>
+                  <select value={speakingRequestForm.sunday_requirement} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, sunday_requirement: e.target.value }))} style={styles.input}>
+                    <option value="">Select an option</option>
+                    <option value="Sunday is not required">Sunday is not required</option>
+                    <option value="Sunday is preferred">Sunday is preferred</option>
+                    <option value="Sunday is Required">Sunday is Required</option>
+                  </select>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={styles.label}>Expected Attendance *</label>
-                    <input type="number" value={speakingRequestForm.expected_attendance} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expected_attendance: e.target.value }))} style={styles.input} placeholder="e.g. 200" required />
-                  </div>
-                  <div>
-                    <label style={styles.label}>Honorarium</label>
-                    <input type="text" value={speakingRequestForm.honorarium} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, honorarium: e.target.value }))} style={styles.input} placeholder="e.g. $1,500" />
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Have you done an event with Shaq before? If so, what events/when? *</label>
+                  <input type="text" value={speakingRequestForm.worked_with_before} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, worked_with_before: e.target.value }))} style={styles.input} placeholder="e.g. Youth Conference, March 2024 or N/A if not applicable" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event theme/goal? *</label>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px', marginBottom: '8px' }}>Do you already have a theme and what are you hoping to accomplish?</p>
+                  <textarea value={speakingRequestForm.event_theme} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_theme: e.target.value }))} style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }} placeholder="Describe the theme and what you hope to accomplish..." required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Audience *</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px', marginTop: '8px' }}>
+                    {['Church Congregation', 'Adults', "Men's Ministry", 'Young Adults', 'College Students', 'High School Students', 'Middle School Students', 'Other'].map((audience) => (
+                      <label key={audience} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', background: speakingRequestForm.event_audience.includes(audience) ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.event_audience.includes(audience) ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
+                        <input type="checkbox" checked={speakingRequestForm.event_audience.includes(audience)} onChange={(e) => {
+                          if (e.target.checked) {
+                            setSpeakingRequestForm(prev => ({ ...prev, event_audience: [...prev.event_audience, audience] }));
+                          } else {
+                            setSpeakingRequestForm(prev => ({ ...prev, event_audience: prev.event_audience.filter(a => a !== audience) }));
+                          }
+                        }} style={{ accentColor: '#535E4A' }} />
+                        <span style={{ color: '#F7F3E9', fontSize: '13px' }}>{audience}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={styles.label}>Additional Comments</label>
-                  <textarea value={speakingRequestForm.additional_comments} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, additional_comments: e.target.value }))} style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }} placeholder="Any other details..." />
+                  <label style={styles.label}>Anticipated Attendance *</label>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px', marginBottom: '8px' }}>How many people do you anticipate attending?</p>
+                  <input type="number" value={speakingRequestForm.expected_attendance} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expected_attendance: e.target.value }))} style={styles.input} placeholder="e.g. 200" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Is the sale of merch allowed during the event? Would it make sense? *</label>
+                  <select value={speakingRequestForm.merch_allowed} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, merch_allowed: e.target.value }))} style={styles.input}>
+                    <option value="">Select an option</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Event Attire *</label>
+                  <select value={speakingRequestForm.event_attire} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, event_attire: e.target.value }))} style={styles.input}>
+                    <option value="">Select an option</option>
+                    <option value="Casual">Casual</option>
+                    <option value="Business Casual">Business Casual</option>
+                    <option value="Suit and Tie">Suit and Tie</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Compensation & Expenses */}
+              <div style={{ marginBottom: '32px' }}>
+                <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Compensation & Expenses</h4>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Currency *</label>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px', marginBottom: '8px' }}>Honorarium Amount</p>
+                  <input type="text" value={speakingRequestForm.honorarium} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, honorarium: e.target.value }))} style={styles.input} placeholder="$" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Expenses Covered *</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    {['Travel (mileage, rental, gas, car, etc.)', 'Travel for companion (flight)', 'Food & Coffee', 'Parking', 'Hotel'].map((expense) => (
+                      <label key={expense} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', background: speakingRequestForm.expenses_covered.includes(expense) ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.expenses_covered.includes(expense) ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
+                        <input type="checkbox" checked={speakingRequestForm.expenses_covered.includes(expense)} onChange={(e) => {
+                          if (e.target.checked) {
+                            setSpeakingRequestForm(prev => ({ ...prev, expenses_covered: [...prev.expenses_covered, expense] }));
+                          } else {
+                            setSpeakingRequestForm(prev => ({ ...prev, expenses_covered: prev.expenses_covered.filter(ex => ex !== expense) }));
+                          }
+                        }} style={{ accentColor: '#535E4A' }} />
+                        <span style={{ color: '#F7F3E9', fontSize: '13px' }}>{expense}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Email *</label>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px', marginBottom: '8px' }}>Send expenses to...</p>
+                  <input type="email" value={speakingRequestForm.expense_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expense_email: e.target.value }))} style={styles.input} placeholder="expenses@example.com" required />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={styles.label}>Additional Comments?</label>
+                  <textarea value={speakingRequestForm.additional_comments} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, additional_comments: e.target.value }))} style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }} placeholder="Any other details you'd like to share..." />
                 </div>
               </div>
 
