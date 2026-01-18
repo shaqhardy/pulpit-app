@@ -283,12 +283,14 @@ export default function PulpitApp() {
     contact_email: '',
     contact_phone: '',
     // Church Address
+    church_country: 'United States',
     church_street: '',
     church_street2: '',
     church_city: '',
     church_state: '',
     church_zip: '',
     // Event Venue Address
+    venue_country: 'United States',
     venue_street: '',
     venue_street2: '',
     venue_city: '',
@@ -803,8 +805,8 @@ export default function PulpitApp() {
         contact_name: `${speakingRequestForm.contact_first_name} ${speakingRequestForm.contact_last_name}`,
         contact_email: speakingRequestForm.contact_email,
         contact_phone: speakingRequestForm.contact_phone,
-        location: `${speakingRequestForm.church_street}, ${speakingRequestForm.church_city}, ${speakingRequestForm.church_state} ${speakingRequestForm.church_zip}`,
-        venue_address: `${speakingRequestForm.venue_street}, ${speakingRequestForm.venue_city}, ${speakingRequestForm.venue_state} ${speakingRequestForm.venue_zip}`,
+        location: `${speakingRequestForm.church_street}, ${speakingRequestForm.church_city}, ${speakingRequestForm.church_state} ${speakingRequestForm.church_zip}, ${speakingRequestForm.church_country}`,
+        venue_address: `${speakingRequestForm.venue_street}, ${speakingRequestForm.venue_city}, ${speakingRequestForm.venue_state} ${speakingRequestForm.venue_zip}, ${speakingRequestForm.venue_country}`,
         event_date: speakingRequestForm.event_date,
         event_end_date: speakingRequestForm.event_end_date,
         event_name: speakingRequestForm.event_theme,
@@ -814,12 +816,10 @@ export default function PulpitApp() {
         // Additional fields as JSON in notes or separate columns
         sunday_requirement: speakingRequestForm.sunday_requirement,
         worked_with_before: speakingRequestForm.worked_with_before,
-        previous_event_details: speakingRequestForm.previous_event_details,
         event_audience: speakingRequestForm.event_audience.join(', '),
         merch_allowed: speakingRequestForm.merch_allowed,
         event_attire: speakingRequestForm.event_attire,
         expenses_covered: speakingRequestForm.expenses_covered.join(', '),
-        expense_contact: `${speakingRequestForm.expense_contact_first} ${speakingRequestForm.expense_contact_last}`,
         expense_email: speakingRequestForm.expense_email,
         notes: speakingRequestForm.additional_comments,
         speaker_user_id: currentUser?.id || 1, // Default to speaker ID 1 for public form
@@ -838,11 +838,13 @@ export default function PulpitApp() {
         contact_last_name: '',
         contact_email: '',
         contact_phone: '',
+        church_country: 'United States',
         church_street: '',
         church_street2: '',
         church_city: '',
         church_state: '',
         church_zip: '',
+        venue_country: 'United States',
         venue_street: '',
         venue_street2: '',
         venue_city: '',
@@ -4675,12 +4677,22 @@ export default function PulpitApp() {
 
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Church/Organization Address *</label>
-                  <input type="text" value={speakingRequestForm.church_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Street Address" required />
-                  <input type="text" value={speakingRequestForm.church_street2} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_street2: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Street Address Line 2" />
+                  <div style={{ marginBottom: '8px' }}>
+                    <label style={{ ...styles.label, fontSize: '12px', marginBottom: '4px' }}>Country</label>
+                    <select value={speakingRequestForm.church_country} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_country: e.target.value }))} style={styles.input}>
+                      <option value="United States">United States</option>
+                      <option value="Canada">Canada</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <input type="text" value={speakingRequestForm.church_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 1" required />
+                  <input type="text" value={speakingRequestForm.church_street2} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_street2: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 2" />
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>
                     <input type="text" value={speakingRequestForm.church_city} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_city: e.target.value }))} style={styles.input} placeholder="City" required />
                     <input type="text" value={speakingRequestForm.church_state} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_state: e.target.value }))} style={styles.input} placeholder="State" required />
-                    <input type="text" value={speakingRequestForm.church_zip} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_zip: e.target.value }))} style={styles.input} placeholder="Zip" required />
+                    <input type="text" value={speakingRequestForm.church_zip} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, church_zip: e.target.value }))} style={styles.input} placeholder="ZIP Code" required />
                   </div>
                 </div>
               </div>
@@ -4690,13 +4702,23 @@ export default function PulpitApp() {
                 <h4 style={{ color: 'rgba(247,243,233,0.7)', fontSize: '12px', marginBottom: '16px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(247,243,233,0.1)', paddingBottom: '8px' }}>Event Details</h4>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={styles.label}>Event/Venue Address *</label>
-                  <input type="text" value={speakingRequestForm.venue_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Street Address" required />
-                  <input type="text" value={speakingRequestForm.venue_street2} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street2: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Street Address Line 2" />
+                  <label style={styles.label}>Event Address *</label>
+                  <div style={{ marginBottom: '8px' }}>
+                    <label style={{ ...styles.label, fontSize: '12px', marginBottom: '4px' }}>Country</label>
+                    <select value={speakingRequestForm.venue_country} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_country: e.target.value }))} style={styles.input}>
+                      <option value="United States">United States</option>
+                      <option value="Canada">Canada</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <input type="text" value={speakingRequestForm.venue_street} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 1" required />
+                  <input type="text" value={speakingRequestForm.venue_street2} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_street2: e.target.value }))} style={{ ...styles.input, marginBottom: '8px' }} placeholder="Address Line 2" />
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>
                     <input type="text" value={speakingRequestForm.venue_city} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_city: e.target.value }))} style={styles.input} placeholder="City" required />
                     <input type="text" value={speakingRequestForm.venue_state} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_state: e.target.value }))} style={styles.input} placeholder="State" required />
-                    <input type="text" value={speakingRequestForm.venue_zip} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_zip: e.target.value }))} style={styles.input} placeholder="Zip" required />
+                    <input type="text" value={speakingRequestForm.venue_zip} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, venue_zip: e.target.value }))} style={styles.input} placeholder="ZIP Code" required />
                   </div>
                 </div>
 
@@ -4724,24 +4746,9 @@ export default function PulpitApp() {
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={styles.label}>Have you or your church/organization ever done or attended an event with Shaq before? *</label>
-                  <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                    {['Yes', 'No'].map((option) => (
-                      <label key={option} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 20px', background: speakingRequestForm.worked_with_before === option ? 'rgba(83,94,74,0.2)' : 'rgba(247,243,233,0.03)', borderRadius: '8px', border: speakingRequestForm.worked_with_before === option ? '1px solid rgba(83,94,74,0.5)' : '1px solid transparent' }}>
-                        <input type="radio" name="worked_with_before" value={option} checked={speakingRequestForm.worked_with_before === option} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, worked_with_before: e.target.value }))} style={{ accentColor: '#535E4A' }} />
-                        <span style={{ color: '#F7F3E9', fontSize: '14px' }}>{option}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <label style={styles.label}>Have you done an event with Shaq before? If so, what events/when? *</label>
+                  <input type="text" value={speakingRequestForm.worked_with_before} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, worked_with_before: e.target.value }))} style={styles.input} placeholder="e.g. Youth Conference, March 2024 or N/A if not applicable" required />
                 </div>
-
-                {/* Conditional Question */}
-                {speakingRequestForm.worked_with_before === 'Yes' && (
-                  <div style={{ marginBottom: '16px', padding: '16px', background: 'rgba(83,94,74,0.1)', borderRadius: '10px', borderLeft: '3px solid #535E4A' }}>
-                    <label style={styles.label}>What event (Name, Month, Year if you can recall)? *</label>
-                    <input type="text" value={speakingRequestForm.previous_event_details} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, previous_event_details: e.target.value }))} style={styles.input} placeholder="e.g. Youth Conference, March 2024" required />
-                  </div>
-                )}
 
                 <div style={{ marginBottom: '16px' }}>
                   <label style={styles.label}>Event Theme & Goal *</label>
@@ -4823,19 +4830,9 @@ export default function PulpitApp() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={styles.label}>Send Expenses To (First Name) *</label>
-                    <input type="text" value={speakingRequestForm.expense_contact_first} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expense_contact_first: e.target.value }))} style={styles.input} required />
-                  </div>
-                  <div>
-                    <label style={styles.label}>Last Name *</label>
-                    <input type="text" value={speakingRequestForm.expense_contact_last} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expense_contact_last: e.target.value }))} style={styles.input} required />
-                  </div>
-                </div>
-
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={styles.label}>Email Expenses To... *</label>
+                  <label style={styles.label}>Email *</label>
+                  <p style={{ color: 'rgba(247,243,233,0.5)', fontSize: '12px', marginBottom: '8px' }}>Send expenses to...</p>
                   <input type="email" value={speakingRequestForm.expense_email} onChange={(e) => setSpeakingRequestForm(prev => ({ ...prev, expense_email: e.target.value }))} style={styles.input} placeholder="expenses@example.com" required />
                 </div>
 
